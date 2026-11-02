@@ -1,0 +1,15 @@
+.env
+*.db
+*.db-journal
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+dumps/
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.apk

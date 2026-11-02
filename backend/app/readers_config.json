@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "notes": "Served at GET /v1/config/readers. Selectors are written ONLY from real accessibility dumps. Empty selector lists mean the reader is not built yet.",
+  "apps": {
+    "rapido": {
+      "package": "com.rapido.passenger",
+      "status": "awaiting_dumps",
+      "deep_link": null,
+      "deep_link_note": "Format to be supplied from the working prototype (coordinates, not text).",
+      "screens": {},
+      "dismissers": []
+    },
+    "uber": {
+      "package": "com.ubercab",
+      "status": "awaiting_dumps",
+      "deep_link": "uber://riderequest?pickup[latitude]={pickup_lat}&pickup[longitude]={pickup_lng}&pickup[nickname]={pickup_label}&dropoff[latitude]={drop_lat}&dropoff[longitude]={drop_lng}&dropoff[nickname]={drop_label}",
+      "deep_link_note": "From Uber's public deep-link docs (developer.uber.com, riderequest scheme). Not yet verified on a device.",
+      "screens": {},
+      "dismissers": []
+    },
+    "ola": {
+      "package": "com.olacabs.customer",
+      "status": "awaiting_dumps",
+      "deep_link": null,
+      "deep_link_note": "Format to be supplied from the working prototype (coordinates, not text).",
+      "screens": {},
+      "dismissers": []
+    }
+  }
+}

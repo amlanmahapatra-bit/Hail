@@ -1,0 +1,133 @@
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.config import Settings
+from app.llm import FakeLLM
+from app.main import create_app
+
+# 2026-11-02 14:00 IST (daytime, so late-night weighting is off by default)
+T0 = datetime(2026, 11, 2, 8, 30, tzinfo=UTC)
+
+FARES = {  # app -> [(ride_type, fare_min, fare_max, eta)]
+    "uber": [("cab", 310, 340, 6), ("auto", 180, 190, 4), ("bike", 95, 105, 3)],
+    "ola": [("cab", 290, 320, 8), ("auto", 170, 185, 7)],
+    "rapido": [("cab", 270, 300, 9), ("auto", 150, 160, 5), ("bike", 80, 90, 2)],
+}
+
+
+class Clock:
+    def __init__(self):
+        self.now = T0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds: float):
+        self.now += timedelta(seconds=seconds)
+
+
+def observations(app: str, ride_types: list[str], when: datetime) -> list[dict]:
+    return [
+        {
+            "app": app,
+            "ride_type": rt,
+            "fare_min": lo,
+            "fare_max": hi,
+            "currency": "INR",
+            "eta_minutes": eta,
+            "surge_flag": False,
+            "captured_at": when.isoformat(),
+            "confidence": 0.9,
+            "screen_signature": f"{app}.fare_list.v1",
+        }
+        for rt, lo, hi, eta in FARES[app]
+        if rt in ride_types
+    ]
+
+
+class Phone:
+    """Minimal test client: one device, one session."""
+
+    def __init__(self, client: TestClient, clock: Clock, platform: str = "android"):
+        self.c, self.clock = client, clock
+        caps = {"can_check_fares": True, "can_book": True} if platform == "android" else {}
+        r = client.post("/v1/devices", json={"platform": platform, "capabilities": caps})
+        assert r.status_code == 201, r.text
+        self.token = r.json()["token"]
+        self.session = uuid.uuid4().hex
+
+    def post(self, body: dict, session: str | None = None, expect: int = 200) -> dict:
+        r = self.c.post(
+            f"/v1/sessions/{session or self.session}/messages",
+            json=body,
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+        assert r.status_code == expect, r.text
+        return r.json()
+
+    def say(self, text: str, **kw) -> dict:
+        return self.post({"type": "user_message", "text": text}, **kw)
+
+    def answer_fare_checks(self, resp: dict) -> tuple[dict, list[str]]:
+        apps = []
+        while resp["type"] == "action_request":
+            a = resp["action"]
+            apps.append(a["app"])
+            resp = self.post(
+                {
+                    "type": "tool_result",
+                    "action_id": resp["action_id"],
+                    "status": "ok",
+                    "observations": observations(a["app"], a["ride_types"], self.clock()),
+                }
+            )
+        return resp, apps
+
+    def confirm(self, rec: dict, **over) -> dict:
+        c = rec["confirmation"]
+        return self.post(
+            {
+                "type": "confirmation",
+                "option_id": c["option_id"],
+                "token": c["token"],
+                "accept": True,
+            }
+            | over
+        )
+
+
+@pytest.fixture
+def clock():
+    return Clock()
+
+
+@pytest.fixture
+def settings(tmp_path):
+    return Settings(
+        database_url=f"sqlite:///{tmp_path}/test.db",
+        hail_llm="fake",
+        confirmation_ttl_seconds=90,
+        fare_checks_per_hour=30,
+    )
+
+
+@pytest.fixture
+def make_client(settings, clock):
+    def make(llm=None, **overrides):
+        s = settings.model_copy(update=overrides)
+        return TestClient(create_app(s, llm=llm or FakeLLM(), clock=clock))
+
+    return make
+
+
+@pytest.fixture
+def client(make_client):
+    return make_client()
+
+
+@pytest.fixture
+def phone(client, clock):
+    return Phone(client, clock)

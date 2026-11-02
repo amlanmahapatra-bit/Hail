@@ -2,6 +2,25 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Voice mode (on-device speech, spoken picks)
+- **Founder decision:** voice is a core experience. The whole flow is hands-free: speak, Hail
+  checks the apps, reads out the top 3, you say "Ola auto" / "the first one" / "haan", Hail opens it.
+- **Engines:** Android's built-in SpeechRecognizer (on-device when the phone supports it, else the
+  phone's standard recognizer) and TextToSpeech, both en-IN. ₹0 per request, no extra libraries, and
+  Hail's backend never receives audio, only text, like typing. Revisit with Gemini audio input if
+  on-device accuracy on Hinglish or noisy streets is poor in the pilot.
+- **Safety rule change:** a spoken pick counts like a tap, but only when `VoicePick` (fixed rules,
+  on the phone, never the model) maps it to exactly one option on the card. Unclear or off-card
+  ("Ola Prime SUV" when it isn't listed) → Hail asks again, never guesses. Hail says what it's
+  opening, and still never books. The gate is unchanged: same single-use token, now with
+  `via: "tap" | "voice"` for auditing.
+- **No wake word** ("Hey Hail"): Android restricts background mic, and it costs battery and
+  privacy. Instead: the 🎤 button, plus a long-press "Speak to Hail" shortcut on the app icon.
+- Spoken requests set `input_mode: "voice"`, and the model gets a voice note: expect mis-hearings and
+  Hinglish, reply in one speakable sentence. Live test: "Koramangala jaana hai sasta wala" and
+  "mujhe whitefield jaana hai jaldi, I have two bags" were both understood correctly.
+- The city for ambiguous places ("airport") comes from the phone's location.
+
 ## 2026-11-02: Reach the fare list by navigating, not only by deep links
 - The prototype's deep links are lost. Rapido has no public format. Ola has an official one
   (developers.olacabs.com/docs/deep-linking), but it requires an Ola-issued `utm_source` token we

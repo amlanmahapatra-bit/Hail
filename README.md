@@ -25,7 +25,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "46 passed"
+uv run pytest -q             # expect: "50 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -101,6 +101,13 @@ The APK lands in `android/app/build/outputs/apk/debug/`.
      screen, then log back in)
 5. Share the files (Files app → Downloads → Hail). Dumps contain whatever was on screen
    (your name, saved places), so check them before sharing and delete them afterwards.
+
+### Voice
+Tap 🎤 in the chat (or long-press the Hail icon → **Speak to Hail**) and say e.g. "Koramangala,
+cheapest" or "Koramangala jaana hai, sasta wala". Hail reads out the top three rides and asks
+"Which one?". Say "Ola auto", "the first one" or "haan", or tap a ride. "None of these" or "nahi"
+cancels. The phone does the speech recognition (on the phone itself where supported). Hail
+never receives audio.
 
 ### Test the chat loop without ride apps
 Debug → tick **Simulate fares** (debug builds only). Chat: "Powai to Andheri station, cheapest"

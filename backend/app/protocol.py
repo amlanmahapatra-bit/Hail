@@ -101,6 +101,8 @@ class UserMessage(Strict):
     # Ride apps the user has connected (installed, logged in, switched on) on this phone.
     # None means "not stated", so all apps are allowed.
     available_apps: list[App] | None = Field(default=None, max_length=len(App))
+    # "voice": the user spoke (the phone turned speech into this text). Replies are read aloud.
+    input_mode: Literal["text", "voice"] = "text"
 
 
 class HandoffOutcome(Strict):
@@ -122,6 +124,9 @@ class Confirmation(Strict):
     option_id: Id
     token: str = Field(min_length=16, max_length=128)
     accept: bool = True
+    # How the user picked: a tap, or a spoken pick matched ON THE PHONE by fixed rules
+    # (VoicePick.kt), never by the model. Same gate either way.
+    via: Literal["tap", "voice"] = "tap"
 
 
 Inbound = Annotated[UserMessage | ToolResult | Confirmation, Field(discriminator="type")]

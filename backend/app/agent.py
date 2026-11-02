@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from app import gate
 from app.catalog import lookup
 from app.config import Settings
-from app.geocode import geocode
+from app.geocode import city_of, geocode
 from app.llm import LLMClient, LLMError, ToolCall
 from app.protocol import (
     ActionRequest,
@@ -103,6 +103,7 @@ class Agent:
             s.device_location = msg.location
         if msg.available_apps is not None:
             s.available_apps = list(dict.fromkeys(msg.available_apps))
+        s.voice = msg.input_mode == "voice"
         s.messages.append({"role": "user", "content": msg.text})
         return self._run(ctx)
 
@@ -190,7 +191,12 @@ class Agent:
         tools = tools_for(ctx.caps)
         allowed = {t["function"]["name"] for t in tools}
         for _ in range(self.settings.max_llm_steps_per_turn):
-            msgs = [{"role": "system", "content": system_prompt(ctx.now.astimezone(IST), ctx.caps)}]
+            msgs = [
+                {
+                    "role": "system",
+                    "content": system_prompt(ctx.now.astimezone(IST), ctx.caps, voice=s.voice),
+                }
+            ]
             turn = self.llm.complete(msgs + s.messages, tools)
             s.messages.append(turn.message)
             if not turn.tool_calls:
@@ -232,7 +238,9 @@ class Agent:
                     raise ToolError("current location not shared; ask the user where they are")
                 place, city = s.device_location, "unknown"
             else:
-                hit = geocode(query, a.get("city"))
+                # Prefer the city the phone is in: "airport" in Bangalore is not Mumbai's.
+                here_city = city_of(*_coords(s.device_location))
+                hit = geocode(query, here_city or a.get("city"))
                 if hit is not None:
                     place, city = hit.place, hit.city
                 else:
@@ -407,6 +415,10 @@ class _Ctx:
         return ErrorResponse(
             session_id=self.session_id, code=code, message=message, retryable=retryable
         )
+
+
+def _coords(p: Place | None) -> tuple[float | None, float | None]:
+    return (p.lat, p.lng) if p else (None, None)
 
 
 def _catalog_ok(ob: FareObservation) -> bool:

@@ -8,6 +8,8 @@
     <!-- Pickup "from here". Read only when the user sends a request; never in the background. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Voice requests: the mic is used only after you tap 🎤 (or right after Hail reads options). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Android 11+ package visibility: only the ride apps we drive. -->
     <queries>
@@ -17,6 +19,16 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="uber" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="olacabs" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
 
@@ -37,6 +49,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
         <activity android:name=".ConsentActivity" android:exported="false" />

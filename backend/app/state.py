@@ -74,6 +74,7 @@ class SessionState(BaseModel):
     available_apps: list[App] | None = None  # apps the user connected on this phone
     ranked_option_ids: list[str] = Field(default_factory=list)  # last rank_options order
     action_seq: int = 0
+    voice: bool = False  # last user message was spoken
 
     def next_action_id(self) -> str:
         self.action_seq += 1

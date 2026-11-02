@@ -51,6 +51,9 @@ All other calls send `Authorization: Bearer <token>`.
 - `available_apps` lists the ride apps connected on this phone (installed and switched on in
   Connected apps). Only these are checked. Omit it to allow all apps.
 - Any `user_message` cancels a pending options card.
+- `input_mode`: `"text"` (default) or `"voice"` (the phone turned speech into this text). For voice,
+  replies are read aloud, so they come back as one short speakable sentence. Audio never reaches
+  the backend.
 
 ```json
 {"type": "user_message", "text": "Koramangala to MG Road, fastest",
@@ -86,7 +89,8 @@ typed text. `option_id` is whichever option they tapped, and must be one shown o
 ```json
 {"type": "confirmation", "option_id": "opt_5", "token": "<token from the card>", "accept": true}
 ```
-`"accept": false` means "None of these".
+`"accept": false` means "None of these". `via`: `"tap"` (default) or `"voice"`, meaning a spoken pick
+matched on the phone by fixed rules (never the model). Both go through the same gate.
 
 ### Outbound (backend → phone)
 

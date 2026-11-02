@@ -185,3 +185,14 @@ def test_named_pickup_is_not_current_location(phone):
 def test_no_pickup_without_location_asks(phone):
     out = phone.say("to Koramangala")
     assert out["type"] == "assistant_message"
+
+
+def test_ambiguous_place_uses_the_city_the_phone_is_in(phone):
+    blr = {"lat": 12.8875, "lng": 77.5970, "label": "Current location"}
+    resp = phone.post({"type": "user_message", "text": "to airport", "location": blr})
+    assert resp["action"]["drop"]["label"] == "Kempegowda Airport"
+    mum = {"lat": 19.1197, "lng": 72.8464, "label": "Current location"}
+    resp = phone.post(
+        {"type": "user_message", "text": "to airport", "location": mum}, session="mumbai-session-1"
+    )
+    assert resp["action"]["drop"]["label"] == "Mumbai Airport T2"

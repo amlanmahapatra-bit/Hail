@@ -33,15 +33,17 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
     }
 
     /** [apps]: ride apps connected on this phone (installed + switched on). */
-    fun sendText(text: String, apps: List<String>, l: Listener) = run(
+    fun sendText(text: String, apps: List<String>, l: Listener, spoken: Boolean = false) = run(
         JSONObject().put("type", "user_message").put("text", text)
+            .put("input_mode", if (spoken) "voice" else "text")
             .put("available_apps", org.json.JSONArray(apps))
             .apply { Here.now(ctx)?.let { put("location", it) } }, l
     )
 
-    fun confirm(optionId: String, token: String, accept: Boolean, l: Listener) = run(
+    /** The user's pick on the card: a tap, or a spoken pick matched on the phone by [VoicePick]. */
+    fun confirm(optionId: String, token: String, accept: Boolean, l: Listener, via: String = "tap") = run(
         JSONObject().put("type", "confirmation").put("option_id", optionId)
-            .put("token", token).put("accept", accept), l
+            .put("token", token).put("accept", accept).put("via", via), l
     )
 
     fun deleteMyData(done: (Boolean) -> Unit) = exec.execute {

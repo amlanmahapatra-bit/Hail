@@ -44,6 +44,25 @@ _GAZETTEER: dict[str, dict[str, tuple[float, float, str]]] = {
 _CITY_ALIASES = {"bengaluru": "bangalore", "blr": "bangalore", "bombay": "mumbai"}
 
 
+# Rough city centres, used only to tell which pilot city the user is in.
+_CITY_CENTRES = {"mumbai": (19.0760, 72.8777), "bangalore": (12.9716, 77.5946)}
+
+
+def city_of(lat: float | None, lng: float | None, max_km: float = 60.0) -> str | None:
+    """Pilot city the phone is in (by distance to the city centre), or None."""
+    if lat is None or lng is None:
+        return None
+    from math import asin, cos, radians, sin, sqrt
+
+    def km(a: tuple[float, float], b: tuple[float, float]) -> float:
+        dlat, dlng = radians(b[0] - a[0]), radians(b[1] - a[1])
+        h = sin(dlat / 2) ** 2 + cos(radians(a[0])) * cos(radians(b[0])) * sin(dlng / 2) ** 2
+        return 6371 * 2 * asin(sqrt(h))
+
+    best = min(_CITY_CENTRES, key=lambda c: km((lat, lng), _CITY_CENTRES[c]))
+    return best if km((lat, lng), _CITY_CENTRES[best]) <= max_km else None
+
+
 def normalize_city(city: str | None) -> str | None:
     if not city:
         return None

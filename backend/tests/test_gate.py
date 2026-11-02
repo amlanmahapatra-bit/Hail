@@ -205,3 +205,34 @@ def test_hostile_model_cannot_open_apps(make_client, clock):
         phone.post({"type": "confirmation", "option_id": "opt_1", "token": "x" * 32})["code"]
         == "no_pending_confirmation"
     )
+
+
+def test_voice_pick_goes_through_the_same_gate(phone):
+    rec = _rec(phone)
+    other = rec["options"][3]["option_id"]
+    assert phone.confirm(rec, option_id=other, via="voice")["type"] == "handoff_request"
+    assert phone.confirm(rec, via="voice")["type"] == "error"  # single use, voice or tap
+
+
+def test_voice_pick_without_token_or_bad_via_rejected(phone):
+    rec = _rec(phone)
+    assert phone.confirm(rec, token="B" * 32, via="voice")["code"] == "bad_token"
+    phone.post(
+        {
+            "type": "confirmation",
+            "option_id": rec["recommended_option_id"],
+            "token": rec["confirmation"]["token"],
+            "via": "llm",
+        },
+        expect=422,
+    )
+
+
+def test_spoken_request_makes_the_prompt_voice_aware(make_client, clock):
+    llm = RecordingLLM(FakeLLM())
+    phone = Phone(make_client(llm=llm), clock)
+    phone.post({"type": "user_message", "text": "Powai to Andheri station", "input_mode": "voice"})
+    assert "read aloud" in llm.seen[0]
+    phone2 = Phone(make_client(llm=(llm2 := RecordingLLM(FakeLLM()))), clock)
+    phone2.say("Powai to Andheri station")
+    assert "read aloud" not in llm2.seen[0]

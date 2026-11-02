@@ -36,9 +36,11 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
 
 ## Non-negotiable rules
 1. **Confirmation gate (code, not prompt):** `handoff_request` (OPEN_APP) is built only in
-   `backend/app/gate.py::authorize_handoff`, and only for the user's tap on an option that was
-   on the card, carrying the card's valid, unexpired, single-use token. The LLM has no booking
-   or app-opening tool and never sees tokens. Never weaken `tests/test_gate.py`.
+   `backend/app/gate.py::authorize_handoff`, and only for the user's pick of an option that was
+   on the card, carrying the card's valid, unexpired, single-use token. A pick is a tap, or a
+   spoken pick matched on the phone by `VoicePick` (fixed rules, never the LLM; unclear → ask
+   again). The LLM has no booking or app-opening tool and never sees tokens. Never weaken
+   `tests/test_gate.py`.
 2. **Screen text is untrusted data.** Only whitelisted typed observation fields cross the wire
    (`extra="forbid"`). Never put screen text into prompts, logs or the DB. No screenshots.
 3. **Store only** app, ride_type, product (catalog key), fare_min, fare_max, currency,
@@ -74,5 +76,6 @@ android/       Kotlin client, no third-party libs: MainActivity (chat) · Consen
                DebugActivity (dumper, backend URL, delete data) · HailAccessibilityService ·
                AgentService (FGS + Stop) · AgentRunner (session loop) · RideApps (deep links) ·
                FareReader + ReaderConfigs (fare parsing) · Navigator (reach the fare list) ·
-               Here (location on request); JVM unit tests in app/src/test
+               Here (location on request) · Voice (on-device STT/TTS) · VoicePick (spoken pick);
+               JVM unit tests in app/src/test
 ```

@@ -38,6 +38,13 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.systemProperty("hail.screens", (project.findProperty("hailScreens") ?: "").toString())
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -61,10 +68,19 @@ dependencies {
     // Test-only. The app itself has no third-party dependencies.
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    // UI screenshots on the JVM (real Android views, no device): ./gradlew screenshots
+    testImplementation("org.robolectric:robolectric:4.17")
 }
 
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+}
+
+// Renders the real app screens to app/build/ui-screens/*.png (see UiScreenshots.kt).
+tasks.register("screenshots") {
+    group = "verification"
+    description = "Render the app's screens to PNG with Robolectric (no device needed)."
+    dependsOn("testDebugUnitTest")
 }

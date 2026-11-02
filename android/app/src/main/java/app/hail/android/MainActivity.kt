@@ -259,7 +259,10 @@ class MainActivity : Activity(), AgentRunner.Listener {
                 voice.stopListening(); voice.stopSpeaking()
                 busy = true
                 runner.confirm(id, token, true, this)
-            }.apply { isAllCaps = false; textAlignment = android.view.View.TEXT_ALIGNMENT_VIEW_START }
+            }.apply {
+                isAllCaps = false
+                gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+            }
         }
         buttons += button("None of these") {
             buttons.forEach { it.isEnabled = false }
@@ -288,6 +291,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
         val surge = if (o.optBoolean("surge_flag")) " · surge" else ""
         val app = o.getString("app").replaceFirstChar { it.uppercase() }
         val product = o.optString("product_name").takeIf { it.isNotEmpty() && it != "null" } ?: o.getString("ride_type")
-        return "$app $product · $fare$eta$surge"
+        val name = if (product.startsWith(app, ignoreCase = true)) product else "$app $product"
+        return "$name · $fare$eta$surge"
     }
 }

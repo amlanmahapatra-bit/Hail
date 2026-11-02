@@ -1,0 +1,370 @@
+{
+ "said": "Koramangala jaana hai sasta wala",
+ "apps_checked": [
+  "uber",
+  "ola",
+  "rapido"
+ ],
+ "recommendation": {
+  "session_id": "7b7ffd8ecbe348599cd1c3bdd2266312",
+  "type": "recommendation",
+  "text": "Ola Bike is the cheapest option at ₹40 with a 1 min pickup.",
+  "recommended_option_id": "opt_13",
+  "options": [
+   {
+    "option_id": "opt_13",
+    "app": "ola",
+    "ride_type": "bike",
+    "product_name": "Bike",
+    "fare_min": 40.0,
+    "fare_max": 40.0,
+    "eta_minutes": 1,
+    "surge_flag": false,
+    "saves": 4
+   },
+   {
+    "option_id": "opt_21",
+    "app": "rapido",
+    "ride_type": "bike",
+    "product_name": "Bike Direct",
+    "fare_min": 40.0,
+    "fare_max": 40.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 4
+   },
+   {
+    "option_id": "opt_5",
+    "app": "uber",
+    "ride_type": "bike",
+    "product_name": "Bike Saver",
+    "fare_min": 40.96,
+    "fare_max": 40.96,
+    "eta_minutes": 6,
+    "surge_flag": false,
+    "saves": 3
+   },
+   {
+    "option_id": "opt_22",
+    "app": "rapido",
+    "ride_type": "bike",
+    "product_name": "Scooty Direct",
+    "fare_min": 44.0,
+    "fare_max": 44.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_9",
+    "app": "uber",
+    "ride_type": "bike",
+    "product_name": "Scooty",
+    "fare_min": 44.18,
+    "fare_max": 44.18,
+    "eta_minutes": 7,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_12",
+    "app": "ola",
+    "ride_type": "auto",
+    "product_name": "Auto",
+    "fare_min": 46.0,
+    "fare_max": 46.0,
+    "eta_minutes": 1,
+    "surge_flag": false,
+    "saves": 3
+   },
+   {
+    "option_id": "opt_23",
+    "app": "rapido",
+    "ride_type": "auto",
+    "product_name": "Auto Lite",
+    "fare_min": 49.0,
+    "fare_max": 49.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_24",
+    "app": "rapido",
+    "ride_type": "auto",
+    "product_name": "Auto",
+    "fare_min": 49.0,
+    "fare_max": 49.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_1",
+    "app": "uber",
+    "ride_type": "auto",
+    "product_name": "Auto",
+    "fare_min": 49.4,
+    "fare_max": 49.4,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_3",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Premier AC",
+    "fare_min": 64.98,
+    "fare_max": 64.98,
+    "eta_minutes": 5,
+    "surge_flag": false,
+    "saves": 67
+   },
+   {
+    "option_id": "opt_2",
+    "app": "uber",
+    "ride_type": "auto",
+    "product_name": "Auto Priority",
+    "fare_min": 76.0,
+    "fare_max": 76.0,
+    "eta_minutes": 2,
+    "surge_flag": false,
+    "saves": 24
+   },
+   {
+    "option_id": "opt_25",
+    "app": "rapido",
+    "ride_type": "auto",
+    "product_name": "Auto Priority",
+    "fare_min": 100.0,
+    "fare_max": 100.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_26",
+    "app": "rapido",
+    "ride_type": "cab",
+    "product_name": "Cab Non AC",
+    "fare_min": 101.0,
+    "fare_max": 101.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 11
+   },
+   {
+    "option_id": "opt_28",
+    "app": "rapido",
+    "ride_type": "cab",
+    "product_name": "Cab AC",
+    "fare_min": 108.0,
+    "fare_max": 108.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 11
+   },
+   {
+    "option_id": "opt_8",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Go Non AC",
+    "fare_min": 109.15,
+    "fare_max": 109.15,
+    "eta_minutes": 7,
+    "surge_flag": false,
+    "saves": 3
+   },
+   {
+    "option_id": "opt_19",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Mini Non AC",
+    "fare_min": 112.0,
+    "fare_max": 112.0,
+    "eta_minutes": 1,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_27",
+    "app": "rapido",
+    "ride_type": "cab",
+    "product_name": "Cab AC Priority",
+    "fare_min": 114.0,
+    "fare_max": 114.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 49
+   },
+   {
+    "option_id": "opt_15",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Mini",
+    "fare_min": 118.0,
+    "fare_max": 118.0,
+    "eta_minutes": 4,
+    "surge_flag": false,
+    "saves": 1
+   },
+   {
+    "option_id": "opt_4",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Uber Go AC",
+    "fare_min": 118.75,
+    "fare_max": 118.75,
+    "eta_minutes": 6,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_14",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Priority",
+    "fare_min": 124.0,
+    "fare_max": 124.0,
+    "eta_minutes": 1,
+    "surge_flag": false,
+    "saves": 39
+   },
+   {
+    "option_id": "opt_16",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Prime Sedan",
+    "fare_min": 124.0,
+    "fare_max": 124.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 8
+   },
+   {
+    "option_id": "opt_18",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Prime Plus",
+    "fare_min": 131.0,
+    "fare_max": 131.0,
+    "eta_minutes": 4,
+    "surge_flag": false,
+    "saves": 1
+   },
+   {
+    "option_id": "opt_29",
+    "app": "rapido",
+    "ride_type": "cab",
+    "product_name": "Cab Premium",
+    "fare_min": 132.0,
+    "fare_max": 132.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_17",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Prime SUV",
+    "fare_min": 139.0,
+    "fare_max": 139.0,
+    "eta_minutes": 4,
+    "surge_flag": false,
+    "saves": 100
+   },
+   {
+    "option_id": "opt_20",
+    "app": "ola",
+    "ride_type": "cab",
+    "product_name": "Prime Luggage",
+    "fare_min": 144.0,
+    "fare_max": 144.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_6",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Go Priority",
+    "fare_min": 162.89,
+    "fare_max": 162.89,
+    "eta_minutes": 4,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_30",
+    "app": "rapido",
+    "ride_type": "cab",
+    "product_name": "Cab XL",
+    "fare_min": 164.0,
+    "fare_max": 164.0,
+    "eta_minutes": 3,
+    "surge_flag": false,
+    "saves": 75
+   },
+   {
+    "option_id": "opt_11",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Black",
+    "fare_min": 181.09,
+    "fare_max": 181.09,
+    "eta_minutes": 15,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_7",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "UberXL",
+    "fare_min": 189.38,
+    "fare_max": 189.38,
+    "eta_minutes": 6,
+    "surge_flag": false,
+    "saves": null
+   },
+   {
+    "option_id": "opt_10",
+    "app": "uber",
+    "ride_type": "cab",
+    "product_name": "Premier XL",
+    "fare_min": 238.6,
+    "fare_max": 238.6,
+    "eta_minutes": 8,
+    "surge_flag": false,
+    "saves": null
+   }
+  ],
+  "confirmation": {
+   "token": "screenshot-fixture-token",
+   "expires_at": "2026-11-02T08:49:08.614648Z"
+  }
+ },
+ "picked_option_id": "opt_12",
+ "done": {
+  "session_id": "7b7ffd8ecbe348599cd1c3bdd2266312",
+  "type": "assistant_message",
+  "text": "Opened Ola with your trip. Pick auto and tap Book there. You save ₹3.",
+  "savings": {
+   "amount": 3,
+   "compared_against": {
+    "option_id": "opt_1",
+    "app": "uber",
+    "ride_type": "auto",
+    "product_name": "Auto",
+    "fare_min": 49.4,
+    "fare_max": 49.4,
+    "eta_minutes": 3,
+    "surge_flag": false
+   }
+  },
+  "done": true
+ }
+}

@@ -113,6 +113,12 @@ never receives audio.
 Debug → tick **Simulate fares** (debug builds only). Chat: "Powai to Andheri station, cheapest"
 → you get a list of rides with test fares → tap one → Hail opens that app.
 
+## UI screenshots (no phone needed)
+`docs/ui/` has the app's real screens, rendered from its code with Robolectric and fed a real
+backend conversation (`tools/make_ui_fixtures.py`). To regenerate them:
+`cd android && ./gradlew testDebugUnitTest -PhailScreens=1 --tests '*UiScreenshots*'` →
+`android/app/build/ui-screens/`.
+
 ## Docs
 - `docs/protocol.md`: every message type, with examples
 - `docs/decisions.md`: why things are the way they are

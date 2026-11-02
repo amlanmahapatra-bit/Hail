@@ -8,6 +8,7 @@ def _by_id(rec):
 
 
 def test_full_loop_cheapest(phone):
+    """Real fares from the founder's recordings (Bangalore, 2026-11-02)."""
     resp = phone.say("Powai to Andheri station, cheapest")
     assert resp["type"] == "action_request"
     a = resp["action"]
@@ -17,19 +18,19 @@ def test_full_loop_cheapest(phone):
     rec, apps = phone.answer_fare_checks(resp)
     assert sorted(apps) == ["ola", "rapido", "uber"]
     assert rec["type"] == "recommendation"
-    # every option is offered, best-first for "cheapest"; the cheapest is highlighted
-    assert len(rec["options"]) == 8
-    fares = [o["fare_min"] + o["fare_max"] for o in rec["options"]]
-    assert fares == sorted(fares)
+    assert len(rec["options"]) == 30  # 11 Uber + 9 Ola + 10 Rapido rideable products
+    fares = [o["fare_min"] for o in rec["options"]]
+    assert fares == sorted(fares)  # cheapest first
     best = _by_id(rec)[rec["recommended_option_id"]]
-    assert (best["app"], best["ride_type"]) == ("rapido", "bike")
-    assert best["saves"] == 15  # vs Uber bike (100 midpoint)
+    # Ola Bike and Rapido Bike Direct are both Rs40; Ola wins on ETA (1 vs 3 min)
+    assert (best["app"], best["product_name"]) == ("ola", "Bike")
+    assert best["saves"] == 4  # vs Uber Scooty Rs44.18, same "bike" class
 
     handoff = phone.confirm(rec)
     assert handoff["type"] == "handoff_request"
     assert handoff["action"] == {
         "kind": "OPEN_APP",
-        "app": "rapido",
+        "app": "ola",
         "option_id": rec["recommended_option_id"],
         "ride_type": "bike",
         "pickup": a["pickup"],
@@ -38,8 +39,18 @@ def test_full_loop_cheapest(phone):
 
     done = phone.opened(handoff)
     assert done["type"] == "assistant_message" and done["done"] is True
-    assert "Opened Rapido" in done["text"] and "You save ₹15" in done["text"]
-    assert done["savings"]["amount"] == 15
+    assert "Opened Ola" in done["text"] and "You save ₹4" in done["text"]
+
+
+def test_savings_compare_like_for_like(phone):
+    rec, _ = phone.answer_fare_checks(phone.say("Powai to Andheri station, cheapest"))
+    by_name = {(o["app"], o["product_name"]): o for o in rec["options"]}
+    # Uber Premier AC (Rs64.98 promo) vs the priciest sedan elsewhere: Rapido Cab Premium Rs132
+    assert by_name[("uber", "Premier AC")]["saves"] == 67
+    # Ola Prime SUV Rs139 vs Uber Premier XL Rs238.60 (both 6-seaters)
+    assert by_name[("ola", "Prime SUV")]["saves"] == 100
+    # the priciest in its class saves nothing
+    assert by_name[("uber", "Premier XL")]["saves"] is None
 
 
 def test_user_can_pick_a_non_recommended_option(phone):
@@ -50,7 +61,7 @@ def test_user_can_pick_a_non_recommended_option(phone):
     assert handoff["action"]["app"] == "ola" and handoff["action"]["ride_type"] == "auto"
     done = phone.opened(handoff)
     assert "Opened Ola" in done["text"]
-    assert done["savings"]["amount"] == 8  # Uber auto 185 - Ola auto 177.5, rounded
+    assert done["savings"]["amount"] == 3  # Ola Auto Rs46 vs Uber Auto Rs49.40
 
 
 def test_handoff_failure_is_reported(phone):
@@ -63,8 +74,33 @@ def test_luggage_excludes_bike_from_the_list(phone):
     rec, _ = phone.answer_fare_checks(phone.say("Powai to Andheri station, cheapest, with luggage"))
     assert all(o["ride_type"] != "bike" for o in rec["options"])
     best = _by_id(rec)[rec["recommended_option_id"]]
-    assert (best["app"], best["ride_type"]) == ("rapido", "auto")
-    assert best["saves"] == 30  # Uber auto 185 - Rapido auto 155
+    assert (best["app"], best["ride_type"]) == ("ola", "auto")  # Rs46
+    assert best["saves"] == 3
+
+
+def test_unknown_or_excluded_products_are_dropped(phone):
+    resp = phone.say("Powai to Andheri station")
+    app = resp["action"]["app"]
+    from tests.conftest import observations
+
+    good = observations(app, ["cab", "auto", "bike"], phone.clock())
+    bad = [
+        good[0] | {"product": "made_up_product"},
+        good[0] | {"product": "uber_go_rentals"},
+        good[0] | {"product": "ola_bike", "app": app},
+    ]
+    resp = phone.post(
+        {
+            "type": "tool_result",
+            "action_id": resp["action_id"],
+            "status": "ok",
+            "observations": good + bad,
+        }
+    )
+    rec, _ = phone.answer_fare_checks(resp)
+    from tests.conftest import FARES
+
+    assert sum(o["app"] == app for o in rec["options"]) == len(FARES[app])
 
 
 def test_ride_type_request_only_checks_that_type(phone):

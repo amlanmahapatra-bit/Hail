@@ -74,6 +74,57 @@ class HailAccessibilityService : AccessibilityService() {
             .put("nodes", nodes)
     }
 
+    /**
+     * Text + bounds of every node in [pkg]'s window. Used only by the fare reader, only while
+     * a user-started check is running, and never stored or sent: the reader turns it into
+     * catalog keys and numbers.
+     */
+    fun snapshot(pkg: String): List<ScreenNode>? {
+        if (!AgentState.active) return null
+        val root = rootFor(pkg) ?: return null
+        val out = ArrayList<ScreenNode>(256)
+        fun walk(n: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 80 || out.size > 4000) return
+            val t = n.text?.toString()
+            val d = n.contentDescription?.toString()
+            if (!t.isNullOrBlank() || !d.isNullOrBlank()) {
+                val r = Rect().also { n.getBoundsInScreen(it) }
+                out += ScreenNode(t, d, r.left, r.top, r.right, r.bottom)
+            }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
+        }
+        walk(root, 0)
+        return out
+    }
+
+    /** Scrolls the biggest scrollable list in [pkg]'s window. False if nothing scrolled. */
+    fun scrollForward(pkg: String): Boolean {
+        if (!AgentState.active) return false
+        val root = rootFor(pkg) ?: return false
+        var best: AccessibilityNodeInfo? = null
+        var bestArea = 0
+        fun walk(n: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 80) return
+            if (n.isScrollable && n.isVisibleToUser) {
+                val r = Rect().also { n.getBoundsInScreen(it) }
+                val area = r.width() * r.height()
+                if (area > bestArea) { best = n; bestArea = area }
+            }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
+        }
+        walk(root, 0)
+        return best?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
+    }
+
+    private fun rootFor(pkg: String): AccessibilityNodeInfo? {
+        windows.orEmpty()
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .mapNotNull { it.root }
+            .firstOrNull { it.packageName?.toString() == pkg }
+            ?.let { return it }
+        return rootInActiveWindow?.takeIf { it.packageName?.toString() == pkg }
+    }
+
     fun dismissShade() {
         if (Build.VERSION.SDK_INT >= 31) {
             performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)

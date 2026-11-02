@@ -1,5 +1,7 @@
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,11 +13,9 @@ from app.main import create_app
 # 2026-11-02 14:00 IST (daytime, so late-night weighting is off by default)
 T0 = datetime(2026, 11, 2, 8, 30, tzinfo=UTC)
 
-FARES = {  # app -> [(ride_type, fare_min, fare_max, eta)]
-    "uber": [("cab", 310, 340, 6), ("auto", 180, 190, 4), ("bike", 95, 105, 3)],
-    "ola": [("cab", 290, 320, 8), ("auto", 170, 185, 7)],
-    "rapido": [("cab", 270, 300, 9), ("auto", 150, 160, 5), ("bike", 80, 90, 2)],
-}
+RECORDED = Path(__file__).parents[2] / "tools" / "recorded_fares_blr_2026-11-02.json"
+# Real fares from the founder's recordings (Bangalore, 2026-11-02); see that file.
+FARES = json.loads(RECORDED.read_text(encoding="utf-8"))["fares"]
 
 
 class Clock:
@@ -33,18 +33,19 @@ def observations(app: str, ride_types: list[str], when: datetime) -> list[dict]:
     return [
         {
             "app": app,
-            "ride_type": rt,
-            "fare_min": lo,
-            "fare_max": hi,
+            "ride_type": f["ride_type"],
+            "product": f["product"],
+            "fare_min": f["fare"],
+            "fare_max": f["fare"],
             "currency": "INR",
-            "eta_minutes": eta,
+            "eta_minutes": f["eta"],
             "surge_flag": False,
             "captured_at": when.isoformat(),
             "confidence": 0.9,
-            "screen_signature": f"{app}.fare_list.v1",
+            "screen_signature": f"{app}.recorded.v1",
         }
-        for rt, lo, hi, eta in FARES[app]
-        if rt in ride_types
+        for f in FARES[app]
+        if f["ride_type"] in ride_types
     ]
 
 

@@ -1,29 +1,109 @@
 {
-  "version": 1,
-  "notes": "Served at GET /v1/config/readers. Selectors are written ONLY from real accessibility dumps. Empty selector lists mean the reader is not built yet.",
+  "version": 2,
+  "source": "Transcribed from the founder's screen recordings, Bangalore, 2026-11-02 12:10-12:16 IST (iOS app versions). Product names, screen titles and text patterns are as shown on screen. NOT yet verified against Android accessibility dumps: the Android apps may expose the same text differently (merged content descriptions, 'Rs' vs '₹').",
+  "status": "draft_from_ios_recordings",
+  "price_pattern": "(?:₹|Rs\\.?|INR)\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?)(?:\\s*[-–]\\s*(?:₹|Rs\\.?|INR)?\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?))?(?![0-9A-Za-z])",
+  "classes": {
+    "bike": "Bike / scooty",
+    "auto": "Auto",
+    "auto_priority": "Auto, priority pickup",
+    "cab_non_ac": "Economy cab, non-AC",
+    "cab_ac": "Economy cab, AC",
+    "cab_priority": "Economy cab, priority pickup",
+    "cab_premium": "Sedan / premium",
+    "cab_xl": "SUV / 6-seater",
+    "cab_luggage": "Cab with assured boot space",
+    "cab_luxury": "Luxury"
+  },
   "apps": {
     "rapido": {
       "package": "com.rapido.passenger",
-      "status": "awaiting_dumps",
+      "status": "draft_from_ios_recordings",
       "deep_link": null,
       "deep_link_note": "Format to be supplied from the working prototype (coordinates, not text).",
-      "screens": {},
+      "screens": {
+        "fare_list": {"all_text": ["Book now"], "any_text": ["Bargain & Book", "Women Preferred", "Priority Services", "Extra Space"]},
+        "loading": {"any_text": []},
+        "logged_out": {"any_text": ["What's your number?", "Enter Mobile Number", "Enter your phone number to proceed"]},
+        "ride_in_progress": {"any_text": ["Searching in progress", "Start ride with PIN", "captains didn't accept your ride"]}
+      },
+      "eta_patterns": ["(\\d{1,2})\\s*min(?:s)?\\s*away"],
+      "products": {
+        "Bike Direct": {"key": "rapido_bike_direct", "ride_type": "bike", "class": "bike"},
+        "Scooty Direct": {"key": "rapido_scooty_direct", "ride_type": "bike", "class": "bike"},
+        "Bike Rated by Women": {"key": "rapido_bike_women", "exclude": "specialty"},
+        "Auto Lite": {"key": "rapido_auto_lite", "ride_type": "auto", "class": "auto"},
+        "Auto": {"key": "rapido_auto", "ride_type": "auto", "class": "auto"},
+        "Auto Priority": {"key": "rapido_auto_priority", "ride_type": "auto", "class": "auto_priority"},
+        "Auto Pet": {"key": "rapido_auto_pet", "exclude": "pet"},
+        "Cab Non AC": {"key": "rapido_cab_non_ac", "ride_type": "cab", "class": "cab_non_ac"},
+        "Cab AC": {"key": "rapido_cab_ac", "ride_type": "cab", "class": "cab_ac"},
+        "Cab AC Priority": {"key": "rapido_cab_ac_priority", "ride_type": "cab", "class": "cab_priority"},
+        "Cab Premium": {"key": "rapido_cab_premium", "ride_type": "cab", "class": "cab_premium"},
+        "Cab XL": {"key": "rapido_cab_xl", "ride_type": "cab", "class": "cab_xl"}
+      },
       "dismissers": []
     },
     "uber": {
       "package": "com.ubercab",
-      "status": "awaiting_dumps",
+      "status": "draft_from_ios_recordings",
       "deep_link": "uber://riderequest?pickup[latitude]={pickup_lat}&pickup[longitude]={pickup_lng}&pickup[nickname]={pickup_label}&dropoff[latitude]={drop_lat}&dropoff[longitude]={drop_lng}&dropoff[nickname]={drop_label}",
       "deep_link_note": "From Uber's public deep-link docs (developer.uber.com, riderequest scheme). Not yet verified on a device.",
-      "screens": {},
+      "screens": {
+        "fare_list": {"all_text": [], "any_text": ["Choose a ride", "Rides we think you'll like"]},
+        "loading": {"any_text": ["Gathering options"]},
+        "logged_out": {"any_text": ["Go anywhere with Uber", "Continue with Mobile", "Find my account"]},
+        "ride_in_progress": {"any_text": ["Confirming your ride", "Ride requested", "Drivers complete background checks"]}
+      },
+      "eta_patterns": ["[·•]\\s*(\\d{1,2})\\s*min\\b", "(\\d{1,2})\\s*min(?:s)?\\s*away"],
+      "products": {
+        "Auto": {"key": "uber_auto", "ride_type": "auto", "class": "auto"},
+        "Auto Priority": {"key": "uber_auto_priority", "ride_type": "auto", "class": "auto_priority"},
+        "Bike Saver": {"key": "uber_bike_saver", "ride_type": "bike", "class": "bike"},
+        "Scooty": {"key": "uber_scooty", "ride_type": "bike", "class": "bike"},
+        "Go Non AC": {"key": "uber_go_non_ac", "ride_type": "cab", "class": "cab_non_ac"},
+        "Uber Go AC": {"key": "uber_go_ac", "ride_type": "cab", "class": "cab_ac"},
+        "Go Priority": {"key": "uber_go_priority", "ride_type": "cab", "class": "cab_priority"},
+        "Premier AC": {"key": "uber_premier_ac", "ride_type": "cab", "class": "cab_premium"},
+        "UberXL": {"key": "uber_xl", "ride_type": "cab", "class": "cab_xl"},
+        "Premier XL": {"key": "uber_premier_xl", "ride_type": "cab", "class": "cab_xl"},
+        "Black": {"key": "uber_black", "ride_type": "cab", "class": "cab_luxury"},
+        "Uber Pet": {"key": "uber_pet", "exclude": "pet"},
+        "Parcel Bike": {"key": "uber_parcel_bike", "exclude": "parcel"},
+        "Go Rentals": {"key": "uber_go_rentals", "exclude": "rental"},
+        "Premier Rentals": {"key": "uber_premier_rentals", "exclude": "rental"},
+        "XL Rentals": {"key": "uber_xl_rentals", "exclude": "rental"},
+        "XL Plus Rentals": {"key": "uber_xl_plus_rentals", "exclude": "rental"},
+        "Black Rentals": {"key": "uber_black_rentals", "exclude": "rental"}
+      },
       "dismissers": []
     },
     "ola": {
       "package": "com.olacabs.customer",
-      "status": "awaiting_dumps",
+      "status": "draft_from_ios_recordings",
       "deep_link": null,
       "deep_link_note": "Format to be supplied from the working prototype (coordinates, not text).",
-      "screens": {},
+      "screens": {
+        "fare_list": {"all_text": [], "any_text": ["Book Any", "Quickest auto ride in town", "Comfy, economical cars"]},
+        "loading": {"any_text": []},
+        "logged_out": {"any_text": []},
+        "ride_in_progress": {"any_text": []}
+      },
+      "eta_patterns": ["^\\s*(\\d{1,2})\\s*min(?:s)?\\s*$"],
+      "products": {
+        "Auto": {"key": "ola_auto", "ride_type": "auto", "class": "auto"},
+        "Bike": {"key": "ola_bike", "ride_type": "bike", "class": "bike"},
+        "Mini Non AC": {"key": "ola_mini_non_ac", "ride_type": "cab", "class": "cab_non_ac"},
+        "Mini": {"key": "ola_mini", "ride_type": "cab", "class": "cab_ac"},
+        "Priority": {"key": "ola_priority", "ride_type": "cab", "class": "cab_priority"},
+        "Prime Sedan": {"key": "ola_prime_sedan", "ride_type": "cab", "class": "cab_premium"},
+        "Prime Plus": {"key": "ola_prime_plus", "ride_type": "cab", "class": "cab_premium"},
+        "Prime SUV": {"key": "ola_prime_suv", "ride_type": "cab", "class": "cab_xl"},
+        "Prime Luggage": {"key": "ola_prime_luggage", "ride_type": "cab", "class": "cab_luggage"},
+        "Book Any": {"key": "ola_book_any", "exclude": "aggregate"},
+        "Hourly Rental": {"key": "ola_hourly_rental", "exclude": "rental"},
+        "Parcel": {"key": "ola_parcel", "exclude": "parcel"}
+      },
       "dismissers": []
     }
   }

@@ -20,6 +20,7 @@ object RideApps {
     )
 
     @Volatile var config: JSONObject? = null
+    @Volatile var readers: Map<String, AppReaderConfig> = emptyMap()
 
     fun isInstalled(ctx: Context, app: String): Boolean =
         packages[app]?.let { ctx.packageManager.getLaunchIntentForPackage(it) } != null

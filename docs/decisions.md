@@ -2,6 +2,18 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Readers drafted from the founder's screen recordings (iOS)
+- The recordings gave real screen text, layouts and flows for all three apps (see
+  docs/readers.md). Readers are written from them and marked `draft_from_ios_recordings`. They are
+  not guesses, but they are not Android-verified either. The first Android dumps confirm or fix
+  them, through config where possible.
+- Observations now carry a product **key** from the catalog (e.g. `uber_go_ac`). The backend accepts
+  only known, non-excluded keys and maps them to trusted display names, so screen text still never
+  crosses the wire.
+- Savings are computed within a **comparable class** from the catalog (economy AC, sedan, SUV,
+  ...), not just cab/auto/bike, so Black vs Mini Non AC never counts as a "saving".
+- Max observations per app raised from 12 to 30: Uber showed 11 rideable products plus rentals.
+
 ## 2026-11-02: Hail fetches fares; the customer chooses; the customer books in the app
 - **Founder decision.** Hail checks every connected app and lists all options best-first, with
   one highlighted. The customer taps any option, and Hail opens that app with the trip filled in

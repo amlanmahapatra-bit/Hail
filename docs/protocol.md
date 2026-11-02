@@ -63,7 +63,7 @@ All other calls send `Authorization: Bearer <token>`.
  "observations": [
    {"app": "rapido", "ride_type": "auto", "fare_min": 150, "fare_max": 160, "currency": "INR",
     "eta_minutes": 5, "surge_flag": false, "captured_at": "2026-11-02T08:30:12Z",
-    "confidence": 0.9, "screen_signature": "rapido.fare_list.v1"}
+    "confidence": 0.9, "screen_signature": "rapido.fare_list.v1", "product": "rapido_auto"}
  ]}
 ```
 - `status`: `ok` | `failed` | `app_not_installed` | `not_logged_in` | `stopped_by_user`.
@@ -71,6 +71,8 @@ All other calls send `Authorization: Bearer <token>`.
   screenshots and addresses are never sent. `screen_signature` is an id matching
   `[A-Za-z0-9_.:-]{1,64}`.
 - Observations for a different app or ride type than the action asked for are discarded.
+- `product` is a catalog key from `GET /v1/config/readers` (e.g. `uber_go_ac`), never screen text.
+  Unknown or excluded keys (rentals, parcel...) are discarded. Up to 30 observations per app.
 - `stopped_by_user` (the Stop button) ends the fare check immediately.
 
 #### `tool_result`: answer to an OPEN_APP handoff
@@ -116,9 +118,11 @@ returns a `tool_result`, and the backend replies with the next app's action, or 
 recommendation after the last one.
 
 #### `recommendation`: the options card
-Every eligible option, best-first for the user's preference, with one highlighted.
+Every eligible option, best-first for the user's preference, with one highlighted. Each option
+carries `product_name` (a trusted name from the catalog, e.g. "Uber Go AC").
 Options excluded by the user's constraints (e.g. bikes when they have luggage) are not listed.
-`saves` is what picking that option saves vs the priciest comparable option (same ride type).
+`saves` is what picking that option saves vs the priciest comparable option on another app (same
+catalog class, e.g. sedan vs sedan).
 ```json
 {"type": "recommendation", "session_id": "…",
  "text": "Rapido auto is the cheapest that fits your luggage.",

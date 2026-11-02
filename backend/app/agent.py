@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from app import gate
+from app.catalog import lookup
 from app.config import Settings
 from app.geocode import geocode
 from app.llm import LLMClient, LLMError, ToolCall
@@ -122,7 +123,7 @@ class Agent:
             for ob in msg.observations:
                 # Only accept what was asked for: the app we opened and the ride types we
                 # asked about. Anything else is discarded, never passed on.
-                if ob.app == pa.app and ob.ride_type in pa.ride_types:
+                if ob.app == pa.app and ob.ride_type in pa.ride_types and _catalog_ok(ob):
                     kept.append(ob)
                     oid = f"opt_{len(s.options) + 1}"
                     s.options[oid] = Option(option_id=oid, round=s.round, observation=ob)
@@ -395,11 +396,21 @@ class _Ctx:
         )
 
 
+def _catalog_ok(ob: FareObservation) -> bool:
+    """Product keys must be known for that app, not excluded, and match the ride type."""
+    if ob.product is None:
+        return True
+    p = lookup(ob.app, ob.product)
+    return p is not None and p.exclude is None and p.ride_type == ob.ride_type
+
+
 def _option_json(o: Option) -> dict[str, Any]:
     ob = o.observation
+    p = lookup(ob.app, ob.product)
     return {
         "option_id": o.option_id,
         "app": ob.app.value,
+        "product": p.name if p else None,
         "ride_type": ob.ride_type.value,
         "fare_min": ob.fare_min,
         "fare_max": ob.fare_max,

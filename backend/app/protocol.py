@@ -59,6 +59,9 @@ class FareObservation(Strict):
     # Identifier of the reader's screen-matching rule, e.g. "rapido.fare_list.v1".
     # Restricted charset so it can never carry prose.
     screen_signature: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,64}$")
+    # Catalog key of the ride product (e.g. "uber_go_ac"), from GET /v1/config/readers.
+    # A key, not the text read from the screen; unknown keys are discarded by the backend.
+    product: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,40}$")
 
     @model_validator(mode="after")
     def _range(self) -> "FareObservation":
@@ -100,7 +103,7 @@ class ToolResult(Strict):
     type: Literal["tool_result"] = "tool_result"
     action_id: Id
     status: Literal["ok", "failed", "app_not_installed", "not_logged_in", "stopped_by_user"]
-    observations: list[FareObservation] = Field(default_factory=list, max_length=12)
+    observations: list[FareObservation] = Field(default_factory=list, max_length=30)
     handoff: HandoffOutcome | None = None
 
 
@@ -123,6 +126,7 @@ class OptionView(Strict):
     option_id: str
     app: App
     ride_type: RideType
+    product_name: str | None = None  # trusted display name from the catalog, e.g. "Uber Go AC"
     fare_min: float
     fare_max: float
     eta_minutes: int | None

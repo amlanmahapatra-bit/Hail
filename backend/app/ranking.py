@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.catalog import lookup
 from app.protocol import OptionView, RideType, Savings
 from app.state import Option
 
@@ -34,6 +35,7 @@ def view(o: Option) -> OptionView:
         option_id=o.option_id,
         app=ob.app,
         ride_type=ob.ride_type,
+        product_name=product.name if (product := lookup(ob.app, ob.product)) else None,
         fare_min=ob.fare_min,
         fare_max=ob.fare_max,
         eta_minutes=ob.eta_minutes,
@@ -109,22 +111,32 @@ def rank(options: list[Option], req: RankRequest) -> list[Ranked]:
     return [r for _, r in scored] + excluded
 
 
+def comparable_class(o: Option) -> str:
+    p = lookup(o.observation.app, o.observation.product)
+    if p and p.comparable_class:
+        return p.comparable_class
+    return o.observation.ride_type.value
+
+
 def savings(chosen: Option, checked: list[Option]) -> Savings | None:
     """Savings definition (product decision, see docs/decisions.md):
 
         saved = highest fare among COMPARABLE options checked - fare of the chosen option
 
-    "Comparable" means the same ride type (cab vs cab, auto vs auto, bike vs bike) from the
-    same fare-check round, so a bike is never "saving" against a cab. Fares are midpoints of
-    the ranges shown by the apps. Returns None when there is nothing comparable or the saving
-    rounds to zero, so the client shows no savings line at all.
+    "Comparable" means the same comparable class from the catalog (e.g. economy AC cab vs
+    economy AC cab, sedan vs sedan, auto vs auto; never Uber Black vs Ola Mini Non AC), from
+    another app, in the same fare-check round. Without a catalog product it falls back to the
+    same ride type. Fares are midpoints of the ranges shown (exact prices: min == max).
+    Returns None when there is nothing comparable or the saving rounds to zero, so the client
+    shows no savings line at all.
     """
+    cls = comparable_class(chosen)
     comparable = [
         o
         for o in checked
         if o.round == chosen.round
-        and o.observation.ride_type == chosen.observation.ride_type
-        and o.option_id != chosen.option_id
+        and o.observation.app != chosen.observation.app
+        and comparable_class(o) == cls
     ]
     if not comparable:
         return None

@@ -144,11 +144,14 @@ class MainActivity : Activity(), AgentRunner.Listener {
     }
 
     private fun fmt(o: JSONObject): String {
-        val lo = o.getDouble("fare_min").toInt()
-        val hi = o.getDouble("fare_max").toInt()
-        val fare = if (lo == hi) "₹$lo" else "₹$lo–$hi"
+        val lo = o.getDouble("fare_min")
+        val hi = o.getDouble("fare_max")
+        fun rs(v: Double) = if (v % 1.0 == 0.0) "₹${v.toInt()}" else "₹" + String.format(java.util.Locale.US, "%.2f", v)
+        val fare = if (lo == hi) rs(lo) else "${rs(lo)}–${rs(hi)}"
         val eta = if (o.isNull("eta_minutes")) "" else " · ${o.getInt("eta_minutes")} min"
         val surge = if (o.optBoolean("surge_flag")) " · surge" else ""
-        return "${o.getString("app").replaceFirstChar { it.uppercase() }} ${o.getString("ride_type")} · $fare$eta$surge"
+        val app = o.getString("app").replaceFirstChar { it.uppercase() }
+        val product = o.optString("product_name").takeIf { it.isNotEmpty() && it != "null" } ?: o.getString("ride_type")
+        return "$app $product · $fare$eta$surge"
     }
 }

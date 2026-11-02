@@ -6,8 +6,9 @@ app with your trip filled in, and you book it there.
 
 Status: Week 1. The backend agent loop and the confirmation gate work end to end with a fake
 phone. The Android app builds: consent screen, connected apps, accessibility service, screen
-dumper, Stop notification and chat with an option picker. Fare reading for Uber, Ola and
-Rapido waits on real screen dumps from each app.
+dumper, Stop notification, chat with an option picker, and draft fare readers for Uber, Ola and
+Rapido written from the founder's screen recordings (docs/readers.md). The readers still need
+checking on a real Android phone.
 
 ## Backend: setup
 
@@ -24,7 +25,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "38 passed"
+uv run pytest -q             # expect: "43 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -36,10 +37,11 @@ uv run python ../tools/fake_phone.py --llm openrouter   # real Gemini via OpenRo
 ```
 Expected final lines:
 ```
-FINAL: Opened Rapido with your trip. Pick bike and tap Book there. You save ₹15.
+FINAL: Opened Ola with your trip. Pick bike and tap Book there. You save ₹4.
 PASS: 3 fare checks -> options card -> forged tap refused -> user's pick opened
 ```
-The fares are canned test data, not real prices.
+The fares are real prices transcribed from the founder's recordings (Bangalore, 2 Nov 2026),
+in `tools/recorded_fares_blr_2026-11-02.json`.
 
 ## Run the server
 
@@ -62,6 +64,7 @@ To reach it from a phone, use a Cloudflare quick tunnel:
    browser or file manager when asked.
 
 To build locally instead (needs JDK 21 and the Android SDK): `cd android && ./gradlew assembleDebug`.
+Fare-reader unit tests: `cd android && ./gradlew testDebugUnitTest` (fixtures from the recordings).
 The APK lands in `android/app/build/outputs/apk/debug/`.
 
 ### First run on the phone

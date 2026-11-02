@@ -23,6 +23,7 @@ class DebugActivity : Activity() {
         col.addView(button("Save URL") {
             prefs.backendUrl = url.text.toString().trim()
             RideApps.config = null
+            RideApps.readers = emptyMap()
             toast("Saved")
         })
 

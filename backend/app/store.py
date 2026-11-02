@@ -71,6 +71,7 @@ class FareObservationRow(Base):
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     confidence: Mapped[float] = mapped_column(Float)
     screen_signature: Mapped[str] = mapped_column(String(64))
+    product: Mapped[str | None] = mapped_column(String(40), nullable=True)  # catalog key
 
 
 class FareCheckEventRow(Base):

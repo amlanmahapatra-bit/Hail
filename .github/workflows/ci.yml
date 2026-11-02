@@ -34,7 +34,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew assembleDebug lintDebug --console=plain
+      - run: chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug lintDebug --console=plain
       - uses: actions/upload-artifact@v4
         with:
           name: hail-debug-apk

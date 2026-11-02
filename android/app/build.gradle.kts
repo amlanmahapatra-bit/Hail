@@ -48,6 +48,12 @@ android {
     }
 }
 
+dependencies {
+    // Test-only. The app itself has no third-party dependencies.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)

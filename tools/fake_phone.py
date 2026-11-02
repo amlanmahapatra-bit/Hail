@@ -20,22 +20,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-# Canned fares: app -> [(ride_type, fare_min, fare_max, eta_minutes)]. Made up for testing.
-FARES = {
-    "uber": [("cab", 310, 340, 6), ("auto", 180, 190, 4), ("bike", 95, 105, 3)],
-    "ola": [("cab", 290, 320, 8), ("auto", 170, 185, 7)],
-    "rapido": [("cab", 270, 300, 9), ("auto", 150, 160, 5), ("bike", 80, 90, 2)],
-}
+RECORDED = Path(__file__).with_name("recorded_fares_blr_2026-11-02.json")
+# Real fares transcribed from the founder's recordings (Bangalore, 2026-11-02). See the file.
+FARES = json.loads(RECORDED.read_text(encoding="utf-8"))["fares"]
 
 
 def observations(app: str, ride_types: list[str]) -> list[dict[str, Any]]:
     now = datetime.now(UTC).isoformat()
     return [
-        {"app": app, "ride_type": rt, "fare_min": lo, "fare_max": hi, "currency": "INR",
-         "eta_minutes": eta, "surge_flag": False, "captured_at": now, "confidence": 0.9,
-         "screen_signature": f"{app}.fake.v1"}
-        for rt, lo, hi, eta in FARES[app]
-        if rt in ride_types
+        {"app": app, "ride_type": f["ride_type"], "product": f["product"],
+         "fare_min": f["fare"], "fare_max": f["fare"], "currency": "INR",
+         "eta_minutes": f["eta"], "surge_flag": False, "captured_at": now, "confidence": 0.9,
+         "screen_signature": f"{app}.recorded.v1"}
+        for f in FARES[app]
+        if f["ride_type"] in ride_types
     ]
 
 
@@ -113,8 +111,9 @@ def main() -> int:
     for o in out["options"]:
         star = "*" if o["option_id"] == out["recommended_option_id"] else " "
         saves = f"  saves Rs{o['saves']}" if o.get("saves") else ""
-        print(f"  {star} {o['option_id']:6} {o['app']:7} {o['ride_type']:5} "
-              f"Rs{o['fare_min']:.0f}-{o['fare_max']:.0f}  {o['eta_minutes']} min{saves}")
+        name = o.get("product_name") or o["ride_type"]
+        print(f"  {star} {o['option_id']:6} {o['app']:7} {name:14} "
+              f"Rs{o['fare_min']:.2f}  {o['eta_minutes']} min{saves}")
     print()
     choice = args.pick or out["recommended_option_id"]
 

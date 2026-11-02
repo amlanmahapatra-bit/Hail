@@ -1,0 +1,41 @@
+{
+  "source": "Transcribed by hand from the founder's iPhone screen recordings, Bangalore, 2026-11-02 12:10-12:16 IST. Drop: FF21-Maya-Student Hostel, Krishna Layout, Begur (about 1.4 km). Pickups differed slightly per app (Uber: Mesa School of Business; Rapido: We Work, Bannerghatta Rd; Ola: 38/2 Esteem Enclave, Arekere), so these are close but not a perfect like-for-like comparison. Prices are the current (discounted) price shown; the struck-through original is in 'was'. Excluded products (rentals, parcel, pet, Ola 'Book Any') are omitted.",
+  "fares": {
+    "uber": [
+      {"product": "uber_auto", "ride_type": "auto", "fare": 49.40, "was": 52.00, "eta": 3},
+      {"product": "uber_auto_priority", "ride_type": "auto", "fare": 76.00, "was": 80.00, "eta": 2},
+      {"product": "uber_premier_ac", "ride_type": "cab", "fare": 64.98, "was": 144.98, "eta": 5},
+      {"product": "uber_go_ac", "ride_type": "cab", "fare": 118.75, "was": 125.00, "eta": 6},
+      {"product": "uber_bike_saver", "ride_type": "bike", "fare": 40.96, "was": 45.96, "eta": 6},
+      {"product": "uber_go_priority", "ride_type": "cab", "fare": 162.89, "was": 171.46, "eta": 4},
+      {"product": "uber_xl", "ride_type": "cab", "fare": 189.38, "was": null, "eta": 6},
+      {"product": "uber_go_non_ac", "ride_type": "cab", "fare": 109.15, "was": 114.90, "eta": 7},
+      {"product": "uber_scooty", "ride_type": "bike", "fare": 44.18, "was": 49.18, "eta": 7},
+      {"product": "uber_premier_xl", "ride_type": "cab", "fare": 238.60, "was": null, "eta": 8},
+      {"product": "uber_black", "ride_type": "cab", "fare": 181.09, "was": 241.45, "eta": 15}
+    ],
+    "ola": [
+      {"product": "ola_auto", "ride_type": "auto", "fare": 46, "was": 51, "eta": 1},
+      {"product": "ola_bike", "ride_type": "bike", "fare": 40, "was": null, "eta": 1},
+      {"product": "ola_priority", "ride_type": "cab", "fare": 124, "was": 137, "eta": 1},
+      {"product": "ola_mini", "ride_type": "cab", "fare": 118, "was": 130, "eta": 4},
+      {"product": "ola_prime_sedan", "ride_type": "cab", "fare": 124, "was": 137, "eta": 3},
+      {"product": "ola_prime_suv", "ride_type": "cab", "fare": 139, "was": 154, "eta": 4},
+      {"product": "ola_prime_plus", "ride_type": "cab", "fare": 131, "was": 145, "eta": 4},
+      {"product": "ola_mini_non_ac", "ride_type": "cab", "fare": 112, "was": 124, "eta": 1},
+      {"product": "ola_prime_luggage", "ride_type": "cab", "fare": 144, "was": null, "eta": 3}
+    ],
+    "rapido": [
+      {"product": "rapido_bike_direct", "ride_type": "bike", "fare": 40, "was": null, "eta": 3},
+      {"product": "rapido_scooty_direct", "ride_type": "bike", "fare": 44, "was": null, "eta": 3},
+      {"product": "rapido_auto_lite", "ride_type": "auto", "fare": 49, "was": null, "eta": 3},
+      {"product": "rapido_auto", "ride_type": "auto", "fare": 49, "was": null, "eta": 3},
+      {"product": "rapido_auto_priority", "ride_type": "auto", "fare": 100, "was": null, "eta": 3},
+      {"product": "rapido_cab_non_ac", "ride_type": "cab", "fare": 101, "was": null, "eta": 3},
+      {"product": "rapido_cab_ac_priority", "ride_type": "cab", "fare": 114, "was": null, "eta": 3},
+      {"product": "rapido_cab_ac", "ride_type": "cab", "fare": 108, "was": null, "eta": 3},
+      {"product": "rapido_cab_premium", "ride_type": "cab", "fare": 132, "was": null, "eta": 3},
+      {"product": "rapido_cab_xl", "ride_type": "cab", "fare": 164, "was": null, "eta": 3}
+    ]
+  }
+}

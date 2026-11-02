@@ -71,7 +71,7 @@ def main() -> int:
     ap.add_argument("--llm", choices=["fake", "openrouter"], default="fake",
                     help="In-process only. 'openrouter' needs OPENROUTER_API_KEY in .env.")
     ap.add_argument("--pick", help="option_id to tap instead of the highlighted one")
-    ap.add_argument("--category", default="cab", choices=["auto", "bike", "cab", "cab_xl"],
+    ap.add_argument("--category", default="cab", choices=["auto", "bike", "cab", "premium", "cab_xl"],
                     help="ride type to answer when Hail asks (default: cab)")
     args = ap.parse_args()
 

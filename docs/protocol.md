@@ -51,13 +51,20 @@ All other calls send `Authorization: Bearer <token>`.
 - `available_apps` lists the ride apps connected on this phone (installed and switched on in
   Connected apps). Only these are checked. Omit it to allow all apps.
 - Any `user_message` cancels a pending options card.
-- `ride_category`: `auto` | `bike` | `cab` | `cab_xl`, from the Ride type dropdown or a tapped answer.
+- `ride_category`: `auto` | `bike` | `cab` | `premium` | `cab_xl`, from the Ride type dropdown or a tapped answer.
   Omitted: taken from the words if they name one ("rickshaw", "big cab"), else Hail asks:
   ```json
   {"type": "assistant_message", "text": "Which ride would you like: auto, bike, cab or cab XL?",
    "ask": {"field": "ride_category", "choices": ["auto", "bike", "cab", "cab_xl"]}}
   ```
   Answer with a `user_message` carrying `ride_category` (button) or the words (typed/spoken).
+- `destination`: a tapped favourite (`{"label", "lat", "lng"}`), used as the drop as-is.
+
+#### Favourites
+`GET /v1/favorites` → `{"favorites": [{"id": 3, "label": "Office", "lat": 12.93, "lng": 77.62}]}` ·
+`POST /v1/favorites {"label": "Office", "lat": …, "lng": …}` → 201 (the same label returns the
+existing one; 409 after 20) · `DELETE /v1/favorites/{id}` → 204. Per device only; removed by
+`DELETE /v1/me`.
 - `input_mode`: `"text"` (default) or `"voice"` (the phone turned speech into this text). For voice,
   replies are read aloud, so they come back as one short speakable sentence. Audio never reaches
   the backend.
@@ -137,7 +144,9 @@ recommendation after the last one.
 #### `recommendation`: the options card
 Only the chosen category's options (`ride_category`), plus `prices_checked_at` (when the oldest
 shown price was read) and `live` (false for test/recorded data, which phones must label). Prices
-older than 3 minutes are rejected before they reach a card.
+older than 60 seconds on arrival are rejected before they reach a card. `drop` is the trip's
+destination (for "♡ Save to favourites"). OPEN_APP also carries `product`/`product_name`, so the
+phone selects that ride in the app.
 Every eligible option, best-first for the user's preference, with one highlighted. Each option
 carries `product_name` (a trusted name from the catalog, e.g. "Uber Go AC").
 Options excluded by the user's constraints (e.g. bikes when they have luggage) are not listed.

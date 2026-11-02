@@ -37,6 +37,7 @@ class RideCategory(StrEnum):
     AUTO = "auto"
     BIKE = "bike"
     CAB = "cab"
+    PREMIUM = "premium"  # sedans and luxury: Premier AC, Prime Sedan, Cab Premium, Black
     CAB_XL = "cab_xl"
 
 
@@ -114,6 +115,8 @@ class UserMessage(Strict):
     input_mode: Literal["text", "voice"] = "text"
     # The ride-type dropdown or a tapped choice. None: from the text, or Hail asks.
     ride_category: RideCategory | None = None
+    # A tapped favourite place: used as the destination as-is (no lookup).
+    destination: Place | None = None
 
 
 class HandoffOutcome(Strict):
@@ -187,6 +190,8 @@ class OpenAppAction(Strict):
     ride_type: RideType
     pickup: Place
     drop: Place
+    product: str | None = None  # catalog key of the chosen ride, so the phone can select it
+    product_name: str | None = None
     pickup_is_current_location: bool = False
 
 
@@ -227,6 +232,7 @@ class Recommendation(_Out):
     text: str
     recommended_option_id: str
     ride_category: RideCategory | None = None
+    drop: Place | None = None  # so the phone can offer "♡ Save to favourites"
     options: list[ChoiceOption]
     confirmation: ConfirmationPrompt
     # When the prices were read from the apps (the oldest one), and whether they are live
@@ -259,6 +265,20 @@ Outbound = AssistantMessage | ActionRequest | Recommendation | HandoffRequest | 
 class DeviceRegistration(Strict):
     platform: Platform
     capabilities: Capabilities
+
+
+class FavoriteIn(Strict):
+    label: Label
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class Favorite(FavoriteIn):
+    id: int
+
+
+class Favorites(Strict):
+    favorites: list[Favorite]
 
 
 class DeviceCredentials(Strict):

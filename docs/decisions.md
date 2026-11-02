@@ -2,6 +2,28 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Premium category, remembered ride type, favourites, 1-minute prices, ride pre-selected
+- **Categories:** Auto · Bike · Cab (economy: non-AC, AC, priority, luggage) · **Premium** (sedans
+  and luxury: Uber Premier AC and Black, Ola Prime Sedan and Prime Plus, Rapido Cab Premium) · Cab XL.
+  "sedan", "premium", "black" and "prime" map to Premium; "prime SUV" still maps to Cab XL.
+- **The dropdown remembers the last ride type used** (picked, tapped or spoken). Hail only asks
+  again if the user sets it back to "Any (ask me)".
+- **Favourites:** `GET/POST/DELETE /v1/favorites`, per device, max 20, de-duplicated by label,
+  deleted by `DELETE /v1/me`. One-tap ♥ buttons above the text box (long-press removes), and
+  "♡ Save <place> to favourites" on each results card. Tapping one sends `destination` with its saved
+  place, so there's no lookup. Privacy: home and office are sensitive, so they are stored per device
+  only, never shared or analysed, and the consent screen says so. Alternative if users push back:
+  keep them on the phone only (no sync).
+- **Live prices: 60 seconds** (`MAX_PRICE_AGE_SECONDS=60`). Each app's prices must reach the
+  server within a minute of being read, or they're rejected. The card shows the time to the
+  second ("Live prices · updated 12:16:05 PM", the oldest price shown). Reading three apps takes
+  time, so the first app's prices can be about a minute old when the list appears. The ride app
+  shows its own final price before the user taps Book.
+- **Hand-off:** after the user picks, Hail opens the winning app on the same trip (deep link or
+  navigation, pickup and drop filled) and **taps the chosen ride's row** (e.g. "Auto"). The user
+  only taps that app's Book button. Selecting a row books nothing, and `NEVER_TAP` still blocks
+  Book/Confirm/Choose.
+
 ## 2026-11-02: Ride categories; Hail asks which one; live prices only
 - **Founder decision:** don't show all 30 rides. The user picks a category: **Auto** (rickshaw),
   **Bike**, **Cab** (economy, AC, sedans, priority, luxury) or **Cab XL** (SUV / 6-seater). The

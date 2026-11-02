@@ -32,6 +32,11 @@ class Prefs(context: Context) {
         get() = sp.getString("ride_category", null)
         set(v) = sp.edit().putString("ride_category", v).apply()
 
+    /** Last known favourites (JSON array), so the buttons show instantly and offline. */
+    var favoritesCache: String
+        get() = sp.getString("favorites", "[]")!!
+        set(v) = sp.edit().putString("favorites", v).apply()
+
     var appsSetupDone: Boolean
         get() = sp.getBoolean("apps_setup_done", false)
         set(v) = sp.edit().putBoolean("apps_setup_done", v).apply()

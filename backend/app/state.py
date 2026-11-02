@@ -77,6 +77,7 @@ class SessionState(BaseModel):
     action_seq: int = 0
     voice: bool = False  # last user message was spoken
     ride_category: RideCategory | None = None  # what the user chose (dropdown, words, button)
+    favorite_drop: Place | None = None  # destination from a tapped favourite
     category_for_drop: str | None = None  # the destination that choice was used for
 
     def next_action_id(self) -> str:

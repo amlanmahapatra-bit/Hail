@@ -110,6 +110,8 @@ class Agent:
         if msg.available_apps is not None:
             s.available_apps = list(dict.fromkeys(msg.available_apps))
         s.voice = msg.input_mode == "voice"
+        if msg.destination is not None:
+            s.favorite_drop = msg.destination
         cat = msg.ride_category or detect(msg.text)
         if cat is not None:
             s.ride_category = cat
@@ -241,7 +243,7 @@ class Agent:
                                     "their answer is the next message"
                                 },
                             )
-                            text = "Which ride would you like: auto, bike, cab or cab XL?"
+                            text = "Which ride would you like: auto, bike, cab, premium or cab XL?"
                             s.messages.append({"role": "assistant", "content": text})
                             s.status = Status.IDLE
                             terminal = AssistantMessage(
@@ -267,7 +269,11 @@ class Agent:
             query = str(a.get("query", "")).strip()
             if not query:
                 raise ToolError("query is required")
-            if query.lower() in CURRENT_LOCATION:
+            fav = s.favorite_drop
+            if fav is not None and _same_place(query, fav.label):
+                # A tapped favourite: use the saved place as-is.
+                place, city = fav, city_of(fav.lat, fav.lng) or "unknown"
+            elif query.lower() in CURRENT_LOCATION:
                 if s.device_location is None:
                     raise ToolError("current location not shared; ask the user where they are")
                 place, city = s.device_location, "unknown"
@@ -445,6 +451,7 @@ class Agent:
             ],
             confirmation=prompt,
             ride_category=s.ride_category,
+            drop=s.places[s.trip[1]].place if s.trip else None,
             prices_checked_at=min(current[i].observation.captured_at for i in order),
             live=all(_is_live(current[i].observation) for i in order),
         )
@@ -479,6 +486,14 @@ def _catalog_ok(ob: FareObservation) -> bool:
         return True
     p = lookup(ob.app, ob.product)
     return p is not None and p.exclude is None and p.ride_type == ob.ride_type
+
+
+def _same_place(query: str, label: str) -> bool:
+    def norm(x: str) -> str:
+        return " ".join("".join(c if c.isalnum() else " " for c in x.lower()).split())
+
+    q, lab = norm(query), norm(label)
+    return bool(q) and (q == lab or q in lab or lab in q)
 
 
 def _is_live(ob: FareObservation) -> bool:

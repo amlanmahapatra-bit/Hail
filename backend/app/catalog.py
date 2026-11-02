@@ -52,20 +52,15 @@ def products() -> dict[tuple[App, str], Product]:
 CATEGORY_CLASSES: dict[RideCategory, set[str]] = {
     RideCategory.AUTO: {"auto", "auto_priority"},
     RideCategory.BIKE: {"bike"},
-    RideCategory.CAB: {
-        "cab_non_ac",
-        "cab_ac",
-        "cab_priority",
-        "cab_premium",
-        "cab_luxury",
-        "cab_luggage",
-    },
+    RideCategory.CAB: {"cab_non_ac", "cab_ac", "cab_priority", "cab_luggage"},
+    RideCategory.PREMIUM: {"cab_premium", "cab_luxury"},
     RideCategory.CAB_XL: {"cab_xl"},
 }
 RIDE_TYPES_FOR: dict[RideCategory, list[RideType]] = {
     RideCategory.AUTO: [RideType.AUTO],
     RideCategory.BIKE: [RideType.BIKE],
     RideCategory.CAB: [RideType.CAB],
+    RideCategory.PREMIUM: [RideType.CAB],
     RideCategory.CAB_XL: [RideType.CAB],
 }
 

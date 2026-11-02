@@ -25,6 +25,9 @@ from app.protocol import (
     Capabilities,
     DeviceCredentials,
     DeviceRegistration,
+    Favorite,
+    FavoriteIn,
+    Favorites,
     Inbound,
     Outbound,
 )
@@ -84,6 +87,28 @@ def create_app(
     def delete_me(dev: Annotated[DeviceRow, Depends(device)]) -> Response:
         store.delete_device_data(dev.id)
         log.info("deleted all data for a device")
+        return Response(status_code=204)
+
+    def _fav(r) -> Favorite:
+        return Favorite(id=r.id, label=r.label, lat=r.lat, lng=r.lng)
+
+    @app.get("/v1/favorites")
+    def list_favorites(dev: Annotated[DeviceRow, Depends(device)]) -> Favorites:
+        return Favorites(favorites=[_fav(r) for r in store.list_favorites(dev.id)])
+
+    @app.post("/v1/favorites", status_code=201)
+    def add_favorite(body: FavoriteIn, dev: Annotated[DeviceRow, Depends(device)]) -> Favorite:
+        if (body.lat is None) != (body.lng is None):
+            raise HTTPException(422, "lat and lng must be given together")
+        row = store.add_favorite(dev.id, body.label, body.lat, body.lng, clock())
+        if row is None:
+            raise HTTPException(409, f"at most {store.MAX_FAVORITES} favourites")
+        return _fav(row)
+
+    @app.delete("/v1/favorites/{fav_id}", status_code=204)
+    def delete_favorite(fav_id: int, dev: Annotated[DeviceRow, Depends(device)]) -> Response:
+        if not store.delete_favorite(dev.id, fav_id):
+            raise HTTPException(404, "favourite not found")
         return Response(status_code=204)
 
     @app.post("/v1/sessions/{session_id}/messages")

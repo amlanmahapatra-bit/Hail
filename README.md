@@ -25,7 +25,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "60 passed"
+uv run pytest -q             # expect: "69 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -38,7 +38,7 @@ uv run python ../tools/fake_phone.py --category auto     # answer "Which ride?" 
 ```
 Expected final lines:
 ```
-FINAL: Opened Uber with your trip. Pick Premier AC and tap Book there. You save ₹67.
+FINAL: Opened Rapido with your trip. Pick Cab Non AC and tap Book there. You save ₹11.
 PASS: 3 fare checks -> options card -> forged tap refused -> user's pick opened
 ```
 The fares are real prices transcribed from the founder's recordings (Bangalore, 2 Nov 2026),
@@ -104,9 +104,12 @@ The APK lands in `android/app/build/outputs/apk/debug/`.
    (your name, saved places), so check them before sharing and delete them afterwards.
 
 ### Ride types
-Pick **Auto / Bike / Cab / Cab XL** in the chat's **Ride type** dropdown, or say it ("rickshaw", "big
-cab"). If you don't, Hail asks with four buttons. You only see that type's rides, best first, with
-when the prices were read ("Live prices from the apps · checked 12:16 PM").
+Pick **Auto / Bike / Cab / Premium / Cab XL** in the chat's **Ride type** dropdown, or say it
+("rickshaw", "sedan", "big cab"). If you don't, Hail asks with five buttons, and remembers your
+answer in the dropdown. You only see that type's rides, best first, with when the prices were
+read ("Live prices · updated 12:16:05 PM"; prices older than 1 minute are rejected). Tap ♡ on a
+result to save the place; saved places appear as one-tap ♥ buttons above the text box
+(long-press to remove).
 
 ### Voice
 Tap 🎤 in the chat (or long-press the Hail icon → **Speak to Hail**) and say e.g. "Koramangala,

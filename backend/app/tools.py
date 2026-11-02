@@ -55,8 +55,9 @@ REQUEST_FARE_CHECK = _fn(
         "ride_category": {
             "type": "string",
             "enum": [c.value for c in RideCategory],
-            "description": "auto (rickshaw), bike, cab, or cab_xl (SUV / bigger cab). Only if the "
-            "user said it; otherwise omit and Hail asks them.",
+            "description": "auto (rickshaw), bike, cab (economy), premium (sedan / luxury), "
+            "or cab_xl (SUV / bigger cab). Only if the user said it; otherwise omit and Hail "
+            "asks them.",
         },
     },
     ["pickup_id", "drop_id"],
@@ -110,8 +111,9 @@ Flow:
    pickup is where they are: geocode_place with query "current location". If a place is not
    found, ask the user.
 2. request_fare_check with both place_ids, and ride_category if the user named one (auto /
-   rickshaw, bike, cab, cab_xl = SUV or bigger cab). If they didn't, omit it: Hail asks them
-   and you'll get their answer as the next message. Omit apps to check every connected app.
+   rickshaw, bike, cab = economy, premium = sedan or luxury, cab_xl = SUV or bigger cab).
+   If they didn't, omit it: Hail asks them and you'll get their answer as the next message.
+   Omit apps to check every connected app.
 3. rank_options with the user's preference: cheapest, fastest or balanced (default).
    Set luggage if they mentioned bags, late_night if they said so.
 4. present_options with the top-ranked option as recommended_option_id and a short reason.

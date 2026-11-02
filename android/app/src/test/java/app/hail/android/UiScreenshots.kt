@@ -120,7 +120,11 @@ class UiScreenshots {
     }
 
     @Test fun s3_to_s6_chat() {
-        prefs()
+        prefs().apply {
+            favoritesCache = """[{"id":1,"label":"FF21 Maya Hostel","lat":null,"lng":null},
+                {"id":2,"label":"Mesa School of Business","lat":null,"lng":null},
+                {"id":3,"label":"Forum Mall Koramangala","lat":12.9352,"lng":77.6245}]"""
+        }
         install("com.ubercab"); install("com.olacabs.customer"); install("com.rapido.passenger")
         val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         save(a.window.decorView, "3_chat_start")
@@ -135,6 +139,8 @@ class UiScreenshots {
         save(a.window.decorView, "4b_which_ride")
 
         buttons(scrollOf(a)).forEach { it.isEnabled = false } // the tap on "Auto"
+        MainActivity::class.java.getDeclaredMethod("rememberRideType", String::class.java)
+            .apply { isAccessible = true }.invoke(a, convo.getString("category"))
         say(a, "You: ${RideCategory.of(convo.getString("category"))!!.label}")
         val apps = convo.getJSONArray("apps_checked")
         for (i in 0 until apps.length()) a.onProgress("Checking ${apps.getString(i).replaceFirstChar { it.uppercase() }}…")

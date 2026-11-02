@@ -159,11 +159,14 @@ def test_observations_for_other_apps_are_dropped(phone):
     rec, _ = phone.answer_fare_checks(resp)
     apps = [o["app"] for o in rec["options"]]
     assert asked not in apps
-    assert apps.count(other) == sum(  # only from its own check
-        1
-        for f in FARES[other]
-        if f["ride_type"] == "cab" and "xl" not in f["product"] and "suv" not in f["product"]
+    from app.catalog import CATEGORY_CLASSES, products
+    from app.protocol import App, RideCategory
+
+    cab = CATEGORY_CLASSES[RideCategory.CAB]
+    want = sum(
+        1 for f in FARES[other] if products()[(App(other), f["product"])].comparable_class in cab
     )
+    assert apps.count(other) == want  # only from its own check
 
 
 class RecordingLLM:

@@ -19,7 +19,10 @@ def _best(rec):
 def test_no_ride_type_means_hail_asks_first(phone):
     resp = phone.say("Powai to Andheri station, cheapest")
     assert resp["type"] == "assistant_message"
-    assert resp["ask"] == {"field": "ride_category", "choices": ["auto", "bike", "cab", "cab_xl"]}
+    assert resp["ask"] == {
+        "field": "ride_category",
+        "choices": ["auto", "bike", "cab", "premium", "cab_xl"],
+    }
     # the answer (a tapped button) continues the same trip
     resp = phone.say("Auto", category="auto")
     assert resp["type"] == "action_request"
@@ -82,6 +85,8 @@ def test_auto_cheapest(phone):
         "pickup": a["pickup"],
         "drop": a["drop"],
         "pickup_is_current_location": False,
+        "product": "ola_auto",
+        "product_name": "Auto",
     }
     done = phone.opened(handoff)
     assert (
@@ -91,17 +96,37 @@ def test_auto_cheapest(phone):
     )
 
 
-def test_cab_cheapest_finds_the_promo_sedan(phone):
+def test_cab_is_economy_only(phone):
     rec, _ = phone.answer_fare_checks(
         phone.say("Powai to Andheri station, cheapest", category="cab")
     )
-    assert len(rec["options"]) == 15
-    assert all(
-        o["product_name"] not in {"UberXL", "Premier XL", "Prime SUV", "Cab XL"}
-        for o in rec["options"]
+    names = {o["product_name"] for o in rec["options"]}
+    assert len(rec["options"]) == 10
+    assert not names & {"Premier AC", "Black", "Prime Sedan", "Prime Plus", "Cab Premium"}
+    best = _best(rec)
+    # Rapido Cab Non AC Rs101 vs Ola Mini Non AC Rs112 (same class)
+    assert (best["app"], best["product_name"], best["saves"]) == ("rapido", "Cab Non AC", 11)
+
+
+def test_premium_finds_the_promo_sedan(phone):
+    rec, _ = phone.answer_fare_checks(
+        phone.say("Powai to Andheri station, cheapest", category="premium")
     )
+    assert sorted(o["product_name"] for o in rec["options"]) == [
+        "Black",
+        "Cab Premium",
+        "Premier AC",
+        "Prime Plus",
+        "Prime Sedan",
+    ]
     best = _best(rec)
     assert (best["app"], best["product_name"], best["saves"]) == ("uber", "Premier AC", 67)
+
+
+def test_premium_words(phone):
+    for words in ["sedan", "premium cab", "uber black"]:
+        p = Phone(phone.c, phone.clock)
+        assert p.say(f"Powai to Andheri station, {words}")["action"]["ride_category"] == "premium"
 
 
 def test_cab_xl(phone):
@@ -154,6 +179,25 @@ def test_live_readings_are_marked_live(phone):
             }
         )
     assert resp["live"] is True
+
+
+def test_prices_must_arrive_within_a_minute(phone):
+    resp = phone.say("Powai to Andheri station", category="auto")
+    app = resp["action"]["app"]
+    for age, kept in [(61, False), (30, True)]:
+        p = Phone(phone.c, phone.clock)
+        resp = p.say("Powai to Andheri station", category="auto")
+        obs = observations(resp["action"]["app"], ["auto"], p.clock() - timedelta(seconds=age))
+        resp = p.post(
+            {
+                "type": "tool_result",
+                "action_id": resp["action_id"],
+                "status": "ok",
+                "observations": obs,
+            }
+        )
+        rec, _ = p.answer_fare_checks(resp)
+        assert any(o["app"] == app for o in rec["options"]) is kept, age
 
 
 def test_stale_prices_are_rejected(phone):

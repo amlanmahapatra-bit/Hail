@@ -56,8 +56,8 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
 6. Secrets only in `.env`. Never in code, logs or commits. Logs carry no message text,
    coordinates or tokens.
 7. Fare checks run only for a live user request, and are rate-limited per device. Only live
-   prices: readings older than 3 minutes are rejected, and test/recorded fares are always labelled
-   not live.
+   prices: readings older than 60 seconds on arrival are rejected, and test/recorded fares are
+   always labelled not live. Favourite places are per device and deleted with `DELETE /v1/me`.
 
 ## Working agreement
 - Small, testable steps. Run `uv run ruff check . && uv run pytest -q` (in `backend/`) and

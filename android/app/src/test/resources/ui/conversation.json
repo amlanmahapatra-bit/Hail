@@ -1,9 +1,9 @@
 {
  "said": "Koramangala jaana hai sasta wala",
  "ask": {
-  "session_id": "37da21482829468da292d83ab340629f",
+  "session_id": "e7e8c921c8ae4eb49924e98002c991a0",
   "type": "assistant_message",
-  "text": "Which ride would you like: auto, bike, cab or cab XL?",
+  "text": "Which ride would you like: auto, bike, cab, premium or cab XL?",
   "savings": null,
   "done": false,
   "ask": {
@@ -12,6 +12,7 @@
     "auto",
     "bike",
     "cab",
+    "premium",
     "cab_xl"
    ]
   }
@@ -23,11 +24,16 @@
   "rapido"
  ],
  "recommendation": {
-  "session_id": "37da21482829468da292d83ab340629f",
+  "session_id": "e7e8c921c8ae4eb49924e98002c991a0",
   "type": "recommendation",
-  "text": "Ola Auto is the cheapest option at ₹46 and arrives in 1 min.",
+  "text": "Ola Auto is the cheapest option at ₹46.",
   "recommended_option_id": "opt_3",
   "ride_category": "auto",
+  "drop": {
+   "lat": 12.9352,
+   "lng": 77.6245,
+   "label": "Koramangala"
+  },
   "options": [
    {
     "option_id": "opt_3",
@@ -98,14 +104,14 @@
   ],
   "confirmation": {
    "token": "screenshot-fixture-token",
-   "expires_at": "2026-11-02T09:10:47.574117Z"
+   "expires_at": "2026-11-02T11:30:27.273669Z"
   },
-  "prices_checked_at": "2026-11-02T09:09:17.531196Z",
+  "prices_checked_at": "2026-11-02T11:28:57.225281Z",
   "live": false
  },
  "picked_option_id": "opt_3",
  "done": {
-  "session_id": "37da21482829468da292d83ab340629f",
+  "session_id": "e7e8c921c8ae4eb49924e98002c991a0",
   "type": "assistant_message",
   "text": "Opened Ola with your trip. Pick Auto and tap Book there. You save ₹3.",
   "savings": {

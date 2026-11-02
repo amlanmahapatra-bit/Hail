@@ -32,6 +32,24 @@ class Api(private val prefs: Prefs) {
         }
     }
 
+    // Favourite places (saved per device on the backend; removed with Delete my data).
+    fun favorites(): org.json.JSONArray {
+        ensureRegistered()
+        return request("GET", "/v1/favorites", null).getJSONArray("favorites")
+    }
+
+    fun addFavorite(label: String, lat: Double?, lng: Double?): JSONObject {
+        ensureRegistered()
+        val body = JSONObject().put("label", label)
+        if (lat != null && lng != null) body.put("lat", lat).put("lng", lng)
+        return request("POST", "/v1/favorites", body)
+    }
+
+    fun removeFavorite(id: Int) {
+        ensureRegistered()
+        request("DELETE", "/v1/favorites/$id", null)
+    }
+
     fun readersConfig(): JSONObject = request("GET", "/v1/config/readers", null, auth = false)
 
     fun deleteMyData() {

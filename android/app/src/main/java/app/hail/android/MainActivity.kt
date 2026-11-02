@@ -22,6 +22,8 @@ class MainActivity : Activity(), AgentRunner.Listener {
     private lateinit var scroll: ScrollView
     private lateinit var input: EditText
     private lateinit var banner: TextView
+    private lateinit var spinner: android.widget.Spinner
+    private lateinit var favRow: LinearLayout
     private var busy = false
     private lateinit var voice: Voice
     /** True while the current request was started by voice: replies are spoken too. */
@@ -61,6 +63,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
         bottom.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         bottom.addView(button("Send") { send() })
         bottom.addView(button("🎤") { startVoice() })
+        root.addView(favoritesBar())
         root.addView(bottom)
         setContentView(root)
 
@@ -183,6 +186,8 @@ class MainActivity : Activity(), AgentRunner.Listener {
             startActivity(Intent(this, AppsActivity::class.java))
             return
         }
+        renderFavorites()
+        refreshFavorites()
         banner.text = when {
             prefs.simulateFares -> "TEST MODE: simulated fares"
             AppsActivity.connected(this, prefs).isEmpty() -> "No ride apps connected. Tap Apps."
@@ -199,14 +204,15 @@ class MainActivity : Activity(), AgentRunner.Listener {
         sendText(t, spoken = false)
     }
 
-    private fun sendText(t: String, spoken: Boolean, category: String? = null) {
+    private fun sendText(t: String, spoken: Boolean, category: String? = null, destination: JSONObject? = null) {
         say(if (spoken) "You (voice): $t" else "You: $t")
         busy = true
         val apps = if (prefs.simulateFares) RideApps.packages.keys.toList()
         else AppsActivity.connected(this, prefs)
         // A ride type in the words ("rickshaw", "big cab") wins; else the dropdown; else Hail asks.
         val cat = category ?: RideCategory.detect(t)?.key ?: prefs.rideCategory
-        runner.sendText(t, apps, this, spoken, cat)
+        if (cat != null && cat != prefs.rideCategory) rememberRideType(cat)
+        runner.sendText(t, apps, this, spoken, cat, destination)
     }
 
     // ------------------------------------------------------------------ ride type
@@ -216,7 +222,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
         val r = row().apply { setPadding(dp(4), 0, dp(4), 0); gravity = android.view.Gravity.CENTER_VERTICAL }
         r.addView(text("Ride type", 15f))
         val labels = listOf("Any (ask me)") + RideCategory.entries.map { it.label }
-        val spinner = android.widget.Spinner(this)
+        spinner = android.widget.Spinner(this)
         spinner.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
         spinner.setSelection(RideCategory.entries.indexOfFirst { it.key == prefs.rideCategory } + 1)
         spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
@@ -227,6 +233,87 @@ class MainActivity : Activity(), AgentRunner.Listener {
         }
         r.addView(spinner, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         return r
+    }
+
+    /** The last ride type used becomes the dropdown's value, so Hail stops asking. */
+    private fun rememberRideType(key: String) {
+        prefs.rideCategory = key
+        spinner.setSelection(RideCategory.entries.indexOfFirst { it.key == key } + 1)
+    }
+
+    // ------------------------------------------------------------------ favourites
+
+    /** One-tap favourite places above the text box. Long-press one to remove it. */
+    private fun favoritesBar(): View {
+        favRow = row().apply { setPadding(0, dp(2), 0, dp(2)) }
+        return android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(favRow)
+        }
+    }
+
+    private fun favorites(): List<JSONObject> = runCatching {
+        val a = org.json.JSONArray(prefs.favoritesCache)
+        (0 until a.length()).map { a.getJSONObject(it) }
+    }.getOrDefault(emptyList())
+
+    private fun renderFavorites() {
+        favRow.removeAllViews()
+        for (f in favorites()) {
+            favRow.addView(button("♥ ${f.getString("label")}") { goTo(f) }.apply {
+                isAllCaps = false
+                setOnLongClickListener { removeFavorite(f); true }
+            })
+        }
+        favRow.visibility = if (favRow.childCount == 0) View.GONE else View.VISIBLE
+    }
+
+    private fun refreshFavorites() = runner.favorites({ it.favorites() }) { arr ->
+        if (arr != null) { prefs.favoritesCache = arr.toString(); renderFavorites() }
+    }
+
+    private fun goTo(f: JSONObject) {
+        if (busy) return
+        voiceMode = false
+        val label = f.getString("label")
+        val dest = JSONObject().put("label", label)
+            .put("lat", if (f.isNull("lat")) JSONObject.NULL else f.getDouble("lat"))
+            .put("lng", if (f.isNull("lng")) JSONObject.NULL else f.getDouble("lng"))
+        sendText("to $label", spoken = false, destination = dest)
+    }
+
+    private fun removeFavorite(f: JSONObject) = runner.favorites({ it.removeFavorite(f.getInt("id")) }) { ok ->
+        if (ok != null) {
+            android.widget.Toast.makeText(this, "Removed ${f.getString("label")}", android.widget.Toast.LENGTH_SHORT).show()
+            refreshFavorites()
+        }
+    }
+
+    /** "♡ Save Andheri Station" on a results card; tap again to un-save. */
+    private fun heartButton(drop: JSONObject): View {
+        val label = drop.getString("label")
+        fun saved() = favorites().firstOrNull { it.getString("label").equals(label, ignoreCase = true) }
+        val b = button("") {}.apply { isAllCaps = false }
+        fun paint() { b.text = if (saved() != null) "♥ Saved to favourites" else "♡ Save $label to favourites" }
+        b.setOnClickListener {
+            val existing = saved()
+            if (existing != null) {
+                runner.favorites({ it.removeFavorite(existing.getInt("id")) }) { refreshFavorites(); paint() }
+                prefs.favoritesCache = org.json.JSONArray(favorites().filter { it !== existing && it.getInt("id") != existing.getInt("id") }).toString()
+            } else {
+                val lat = if (drop.isNull("lat")) null else drop.getDouble("lat")
+                val lng = if (drop.isNull("lng")) null else drop.getDouble("lng")
+                runner.favorites({ it.addFavorite(label, lat, lng) }) { fav ->
+                    if (fav != null) {
+                        prefs.favoritesCache = org.json.JSONArray(favorites() + fav).toString()
+                        renderFavorites(); paint()
+                    }
+                }
+            }
+            paint()
+        }
+        paint()
+        return b
     }
 
     /** "Which ride would you like?" with one button per type; voice answers work too. */
@@ -242,13 +329,18 @@ class MainActivity : Activity(), AgentRunner.Listener {
                 buttons.forEach { it.isEnabled = false }
                 voice.stopListening(); voice.stopSpeaking()
                 sendText(c.label, spoken = false, category = c.key)
-            }.also { bar.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)) }
+            }.also {
+                it.isAllCaps = false
+                it.textSize = 13f
+                it.setPadding(0, it.paddingTop, 0, it.paddingBottom)
+                bar.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            }
         }
         log.addView(bar)
         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
         if (!voiceMode) return
         fun listenForType(tries: Int) {
-            val live = text("🎤 Auto, bike, cab or cab XL?")
+            val live = text("🎤 Auto, bike, cab, premium or cab XL?")
             log.addView(live)
             voice.listen(onPartial = { live.text = "🎤 $it" }, onResult = { heard ->
                 log.removeView(live)
@@ -256,7 +348,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
                 when {
                     !buttons.first().isEnabled -> Unit // already tapped
                     c != null -> { buttons.forEach { it.isEnabled = false }; sendText(heard, spoken = true, category = c.key) }
-                    tries < 2 -> voice.speak("Sorry, say auto, bike, cab or cab XL.") { listenForType(tries + 1) }
+                    tries < 2 -> voice.speak("Sorry, say auto, bike, cab, premium or cab XL.") { listenForType(tries + 1) }
                     else -> say("Tap the ride type you want.")
                 }
             })
@@ -348,6 +440,8 @@ class MainActivity : Activity(), AgentRunner.Listener {
         }.apply { isAllCaps = false; alpha = 0.7f }
         buttons += none
         card.addView(none)
+        out.optJSONObject("drop")?.takeIf { it.optString("label") !in setOf("", "Current location") }
+            ?.let { card.addView(heartButton(it)) }
         log.addView(card)
         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
         if (voiceMode) speakOptionsAndListen(out) { id, accept ->
@@ -382,13 +476,13 @@ class MainActivity : Activity(), AgentRunner.Listener {
         val time = at?.let {
             runCatching {
                 java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
-                    .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("h:mm:ss a", java.util.Locale.ENGLISH))
             }.getOrNull()
         }
         val live = out.optBoolean("live", true)
         return when {
             !live -> "Test prices, not live" + (time?.let { " · $it" } ?: "")
-            time != null -> "Live prices from the apps · checked $time"
+            time != null -> "Live prices · updated $time"
             else -> "Live prices from the apps"
         }
     }

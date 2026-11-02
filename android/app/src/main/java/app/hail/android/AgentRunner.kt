@@ -33,10 +33,14 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
     }
 
     /** [apps]: ride apps connected on this phone (installed + switched on). */
-    fun sendText(text: String, apps: List<String>, l: Listener, spoken: Boolean = false, category: String? = null) = run(
+    fun sendText(
+        text: String, apps: List<String>, l: Listener, spoken: Boolean = false, category: String? = null,
+        destination: JSONObject? = null,
+    ) = run(
         JSONObject().put("type", "user_message").put("text", text)
             .put("input_mode", if (spoken) "voice" else "text")
             .apply { if (category != null) put("ride_category", category) }
+            .apply { if (destination != null) put("destination", destination) }
             .put("available_apps", org.json.JSONArray(apps))
             .apply { Here.now(ctx)?.let { put("location", it) } }, l
     )
@@ -46,6 +50,12 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         JSONObject().put("type", "confirmation").put("option_id", optionId)
             .put("token", token).put("accept", accept).put("via", via), l
     )
+
+    /** Runs a favourites call off the main thread; [done] gets the result or null on failure. */
+    fun <T> favorites(call: (Api) -> T, done: (T?) -> Unit) = exec.execute {
+        val r = runCatching { call(api) }.getOrNull()
+        main.post { done(r) }
+    }
 
     fun deleteMyData(done: (Boolean) -> Unit) = exec.execute {
         val ok = runCatching { api.deleteMyData() }.isSuccess
@@ -308,6 +318,7 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
             AgentState.begin(pkg)
             try {
                 opened = reachFareList(svc, app, pkg, cfg, pickup, drop, NavGoal(drop.label, if (here) null else pickup.label)) == null
+                if (opened) selectRide(svc, pkg, action.optString("product_name"))
             } finally {
                 AgentState.end()
             }
@@ -316,6 +327,25 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         return JSONObject().put("type", "tool_result").put("action_id", actionId)
             .put("status", if (opened) "ok" else "failed")
             .put("handoff", JSONObject().put("opened", opened))
+    }
+
+    /**
+     * On the winning app's ride list, taps the row of the ride the user chose (e.g. "Auto"), so
+     * all that's left is the app's own Book button. Selecting a row books nothing; NEVER_TAP still
+     * blocks Book/Confirm/Choose buttons.
+     */
+    private fun selectRide(svc: HailAccessibilityService, pkg: String, name: String) {
+        if (name.isBlank() || name == "null") return
+        repeat(3) { attempt ->
+            val snap = svc.snap(pkg) ?: return
+            val i = snap.nodes.indexOfFirst { it.label?.trim()?.equals(name, ignoreCase = true) == true }
+            if (i >= 0) {
+                svc.tap(snap.infos[i], snap.nodes[i].label)
+                return
+            }
+            if (attempt < 2 && !svc.scrollForward(pkg)) return // row may be below the fold
+            Thread.sleep(SCROLL_SETTLE_MS)
+        }
     }
 
     private fun bringToFront(screen: Class<*> = MainActivity::class.java) {

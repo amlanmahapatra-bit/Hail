@@ -19,6 +19,7 @@ import hmac
 import secrets
 from datetime import datetime, timedelta
 
+from app.catalog import lookup
 from app.protocol import Confirmation, ConfirmationPrompt, HandoffRequest, OpenAppAction
 from app.state import PendingAction, PendingConfirmation, SessionState, Status
 
@@ -97,5 +98,9 @@ def authorize_handoff(
             pickup=pickup,
             drop=drop,
             pickup_is_current_location=pickup_here,
+            product=option.observation.product,
+            product_name=product.name
+            if (product := lookup(option.observation.app, option.observation.product))
+            else None,
         ),
     )

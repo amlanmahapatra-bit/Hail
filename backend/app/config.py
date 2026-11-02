@@ -19,8 +19,9 @@ class Settings(BaseSettings):
     confirmation_ttl_seconds: int = 90
     fare_checks_per_hour: int = 30
     max_llm_steps_per_turn: int = 8
-    # Prices older than this (by captured_at) are rejected: only live readings are shown.
-    max_price_age_seconds: int = 180
+    # Each app's prices must reach the server within this many seconds of being read on the
+    # phone, or they are rejected: only live readings are shown.
+    max_price_age_seconds: int = 60
 
 
 @lru_cache

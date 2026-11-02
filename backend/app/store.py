@@ -74,6 +74,18 @@ class FareObservationRow(Base):
     product: Mapped[str | None] = mapped_column(String(40), nullable=True)  # catalog key
 
 
+class FavoriteRow(Base):
+    """A place the user hearted. Sensitive (home, office): per device, deleted with the device."""
+
+    __tablename__ = "favorites"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(String(64), index=True)
+    label: Mapped[str] = mapped_column(String(80))
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class FareCheckEventRow(Base):
     __tablename__ = "fare_check_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -191,9 +203,49 @@ class Store:
     # privacy
     def delete_device_data(self, device_id: str) -> None:
         with self.db() as db, db.begin():
-            for model in (FareObservationRow, FareCheckEventRow, SessionRow):
+            for model in (FareObservationRow, FareCheckEventRow, SessionRow, FavoriteRow):
                 db.execute(delete(model).where(model.device_id == device_id))
             db.execute(delete(DeviceRow).where(DeviceRow.id == device_id))
+
+    # favourites
+    MAX_FAVORITES = 20
+
+    def list_favorites(self, device_id: str) -> list[FavoriteRow]:
+        with self.db() as db:
+            return list(
+                db.scalars(
+                    select(FavoriteRow)
+                    .where(FavoriteRow.device_id == device_id)
+                    .order_by(FavoriteRow.created_at, FavoriteRow.id)
+                )
+            )
+
+    def add_favorite(
+        self, device_id: str, label: str, lat: float | None, lng: float | None, now: datetime
+    ) -> FavoriteRow | None:
+        """Adds (or returns the existing one with the same label). None if the list is full."""
+        with self.db() as db, db.begin():
+            rows = list(db.scalars(select(FavoriteRow).where(FavoriteRow.device_id == device_id)))
+            for r in rows:
+                if r.label.strip().lower() == label.strip().lower():
+                    return r
+            if len(rows) >= self.MAX_FAVORITES:
+                return None
+            row = FavoriteRow(
+                device_id=device_id, label=label.strip(), lat=lat, lng=lng, created_at=now
+            )
+            db.add(row)
+            db.flush()
+            return row
+
+    def delete_favorite(self, device_id: str, fav_id: int) -> bool:
+        with self.db() as db, db.begin():
+            res = db.execute(
+                delete(FavoriteRow).where(
+                    FavoriteRow.id == fav_id, FavoriteRow.device_id == device_id
+                )
+            )
+            return res.rowcount == 1
 
     def purge_sessions_older_than(self, cutoff: datetime) -> int:
         """Retention: session state (incl. pickup/drop coordinates) is not kept long-term."""

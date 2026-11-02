@@ -24,6 +24,7 @@ from app.protocol import (
     AssistantMessage,
     Capabilities,
     CheckFaresAction,
+    ChoiceOption,
     Confirmation,
     ErrorResponse,
     FareObservation,
@@ -81,23 +82,25 @@ class Agent:
                 return self._on_tool_result(ctx, msg)
             return self._on_confirmation(ctx, msg)
         except LLMError as e:
-            if state.status not in (Status.AWAITING_CONFIRMATION, Status.BOOKING):
+            if state.status not in (Status.AWAITING_CONFIRMATION, Status.HANDING_OFF):
                 state.status = Status.IDLE
             return ctx.error(e.code, "The assistant is unavailable right now.", e.retryable)
 
     # ------------------------------------------------------------- handlers
     def _on_user_message(self, ctx: "_Ctx", msg: UserMessage) -> Outbound:
         s = ctx.state
-        if s.status in (Status.AWAITING_TOOL_RESULT, Status.BOOKING):
+        if s.status in (Status.AWAITING_TOOL_RESULT, Status.HANDING_OFF):
             return ctx.error("busy", "Still working on the last step. Stop it or wait.")
-        # Any new user message cancels a pending confirmation: the user must see a fresh
-        # recommendation card before anything can be booked.
+        # Any new user message cancels a pending card: the user must see a fresh card
+        # before Hail opens any app for them.
         gate.invalidate(s)
         s.recommended_option_id = None
         s.recommendation_reason = None
         s.status = Status.IDLE
         if msg.location:
             s.device_location = msg.location
+        if msg.available_apps is not None:
+            s.available_apps = list(dict.fromkeys(msg.available_apps))
         s.messages.append({"role": "user", "content": msg.text})
         return self._run(ctx)
 
@@ -108,8 +111,8 @@ class Agent:
             return ctx.error("unexpected_tool_result", "No action with that id is pending.")
         s.pending_action = None
 
-        if pa.kind == "BOOK":
-            return self._finish_booking(ctx, pa, msg)
+        if pa.kind == "OPEN_APP":
+            return self._finish_handoff(ctx, pa, msg)
 
         batch = s.batch
         assert batch is not None
@@ -132,7 +135,7 @@ class Agent:
             batch.queue.clear()
             self._close_batch(ctx)
             s.status = Status.IDLE
-            text = "Stopped. Nothing was booked."
+            text = "Stopped."
             s.messages.append({"role": "assistant", "content": text})
             return AssistantMessage(session_id=ctx.session_id, text=text)
 
@@ -145,33 +148,37 @@ class Agent:
         s = ctx.state
         if not msg.accept:
             if s.status != Status.AWAITING_CONFIRMATION:
-                return ctx.error("no_pending_confirmation", "Nothing is awaiting confirmation.")
+                return ctx.error("no_pending_confirmation", "Nothing is awaiting your choice.")
             gate.invalidate(s)
             s.status = Status.IDLE
-            text = "Okay, I won't book it. Tell me what to change."
+            text = "Okay. Tell me what to change."
             s.messages.append({"role": "assistant", "content": text})
             return AssistantMessage(session_id=ctx.session_id, text=text)
         try:
-            return gate.authorize_booking(s, ctx.session_id, msg, ctx.now)
+            return gate.authorize_handoff(s, ctx.session_id, msg, ctx.now)
         except gate.GateError as e:
             return ctx.error(e.code, e.message)
 
-    def _finish_booking(self, ctx: "_Ctx", pa: PendingAction, msg: ToolResult) -> Outbound:
+    def _finish_handoff(self, ctx: "_Ctx", pa: PendingAction, msg: ToolResult) -> Outbound:
         s = ctx.state
         assert pa.option_id is not None
         option = s.options[pa.option_id]
         ob = option.observation
-        name = f"{ob.app.value.capitalize()} {ob.ride_type.value}"
-        if msg.status == "ok" and msg.booking and msg.booking.booked:
+        app_name = ob.app.value.capitalize()
+        if msg.status == "ok" and msg.handoff and msg.handoff.opened:
             s.status = Status.DONE
-            s.booked_option_id = option.option_id
+            s.chosen_option_id = option.option_id
             sv = savings(option, list(s.options.values()))
-            text = f"Booked: {name}." + (f" You saved ₹{sv.amount}." if sv else "")
+            text = (
+                f"Opened {app_name} with your trip. Pick {ob.ride_type.value} and tap Book there."
+            )
+            if sv:
+                text += f" You save ₹{sv.amount}."
             s.messages.append({"role": "assistant", "content": text})
             return AssistantMessage(session_id=ctx.session_id, text=text, savings=sv, done=True)
         s.status = Status.IDLE
         gate.invalidate(s)
-        text = f"The booking in {ob.app.value.capitalize()} didn't go through. Nothing was booked."
+        text = f"I couldn't open {app_name}. Check it's installed and logged in, then ask again."
         s.messages.append({"role": "assistant", "content": text})
         return AssistantMessage(session_id=ctx.session_id, text=text)
 
@@ -200,8 +207,8 @@ class Agent:
                         raise ToolError(f"unknown tool {call.name!r}")
                     if call.name == "request_fare_check":
                         terminal = self._start_fare_check(ctx, call)
-                    elif call.name == "request_confirmation":
-                        terminal = self._request_confirmation(ctx, call)
+                    elif call.name == "present_options":
+                        terminal = self._present_options(ctx, call)
                     else:
                         ctx.tool_reply(call, self._server_tool(ctx, call))
                 except (ToolError, ValidationError, ValueError) as e:
@@ -240,6 +247,7 @@ class Agent:
             if not options:
                 raise ToolError("no fare options yet; call request_fare_check first")
             ranked = rank(options, req)
+            s.ranked_option_ids = [r.option.option_id for r in ranked if r.excluded_reason is None]
             return {
                 "ranked": [
                     _option_json(r.option) | {"score": r.score}
@@ -253,14 +261,6 @@ class Agent:
                 ],
                 "late_night_applied": night,
             }
-
-        if call.name == "recommend_ride":
-            oid = str(a.get("option_id", ""))
-            if oid not in {o.option_id for o in s.current_options()}:
-                raise ToolError(f"unknown option_id {oid[:40]!r}")
-            s.recommended_option_id = oid
-            s.recommendation_reason = str(a.get("reason", ""))[:200] or None
-            return {"recorded": oid}
 
         if call.name == "ondc_search":
             return {"available": False, "reason": "ONDC is not live yet; use the ride apps."}
@@ -277,6 +277,10 @@ class Agent:
         if pickup_id == drop_id:
             raise ToolError("pickup and drop are the same place")
         apps = [App(x) for x in (a.get("apps") or [x.value for x in App])]
+        if s.available_apps is not None:  # only apps the user connected on this phone
+            apps = [x for x in apps if x in s.available_apps]
+        if not apps:
+            raise ToolError("none of those apps are connected on this phone; tell the user")
         ride_types = [RideType(x) for x in (a.get("ride_types") or [x.value for x in RideType])]
         s.round += 1
         s.trip = (pickup_id, drop_id)
@@ -336,23 +340,38 @@ class Agent:
         s.batch = None
         s.status = Status.IDLE
 
-    def _request_confirmation(self, ctx: "_Ctx", call: ToolCall) -> Outbound:
+    def _present_options(self, ctx: "_Ctx", call: ToolCall) -> Outbound:
+        """Show every eligible option (best-first) with one highlighted; the user picks."""
         s = ctx.state
-        oid = str(call.arguments.get("option_id", ""))
-        if oid != s.recommended_option_id:
-            raise ToolError("call recommend_ride with this option_id first")
-        prompt = gate.issue_confirmation(s, oid, ctx.now, self.settings.confirmation_ttl_seconds)
+        oid = str(call.arguments.get("recommended_option_id", ""))
+        current = {o.option_id: o for o in s.current_options()}
+        if oid not in current:
+            raise ToolError(f"unknown option_id {oid[:40]!r}")
+        ranked = [i for i in s.ranked_option_ids if i in current]
+        order = ranked or sorted(current, key=lambda i: current[i].observation.fare_mid)
+        if oid not in order:
+            raise ToolError("that option was excluded by rank_options; recommend an eligible one")
+        prompt = gate.issue_confirmation(s, order, ctx.now, self.settings.confirmation_ttl_seconds)
+        reason = str(call.arguments.get("reason", ""))[:200].strip()
         ctx.tool_reply(
-            call, {"shown_to_user": True, "note": "Waiting for the user's tap. Nothing is booked."}
+            call,
+            {
+                "shown_to_user": True,
+                "note": "The user picks an option in the app. Nothing is booked.",
+            },
         )
-        option = s.options[oid]
-        current = s.current_options()
+        opts = list(current.values())
         return Recommendation(
             session_id=ctx.session_id,
-            text=s.recommendation_reason or "Here's the best option I found.",
-            recommended=view(option),
-            options=[view(o) for o in sorted(current, key=lambda o: o.observation.fare_mid)],
-            savings_if_booked=savings(option, current),
+            text=reason or "Here are your options.",
+            recommended_option_id=oid,
+            options=[
+                ChoiceOption(
+                    **view(current[i]).model_dump(),
+                    saves=(sv.amount if (sv := savings(current[i], opts)) else None),
+                )
+                for i in order
+            ],
             confirmation=prompt,
         )
 

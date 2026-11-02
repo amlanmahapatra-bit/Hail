@@ -2,6 +2,32 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Hail fetches fares; the customer chooses; the customer books in the app
+- **Founder decision.** Hail checks every connected app and lists all options best-first, with
+  one highlighted. The customer taps any option, and Hail opens that app with the trip filled in
+  (OPEN_APP). The customer taps Book themselves. Hail never books.
+- Why: the customer stays in control. It is far less fragile (no booking tapper fighting
+  payment prompts and popups), has lower terms-of-service risk with the ride apps, and works
+  the same way for iPhone later.
+- Protocol: `booking_request`/BOOK replaced by `handoff_request`/OPEN_APP. The card carries one
+  token covering all its options, and `confirmation.option_id` is whichever option was tapped.
+  The tools `recommend_ride` and `request_confirmation` merged into `present_options`, which
+  also means one fewer model step.
+- The gate still applies: no app is opened for booking without the customer's tap on that card.
+- Savings: shown per option on the card, and as "You save ₹X" when the chosen app is opened. We
+  can't confirm they actually booked it yet; detecting the ride app's booked screen is a later
+  step.
+
+## 2026-11-02: "Connected apps" means the customer's own logged-in apps, never stored logins
+- The customer logs in once inside each official Uber/Ola/Rapido app, as they already do, and
+  stays logged in. Hail reuses that, so there is no repeated login and no login inside Hail.
+- The Connected apps screen shows installed or not (with a Play Store link), a "Use with Hail"
+  switch, and "Open to log in". The phone sends `available_apps`, and only those are checked.
+- We do not store ride-app passwords, OTPs or session tokens. Reasons: security liability,
+  the apps' terms, OTP-based logins, and no public booking APIs for Ola/Rapido.
+- Later, once we have dumps of each app's login screen, a fare check that lands on a login
+  screen returns `not_logged_in`, and Hail tells the customer which app to open.
+
 ## 2026-11-02: Lowest-cost toolchain (no Mac, minimal spend)
 - **Android builds: free.** GitHub Actions builds the debug APK on every push and attaches it
   to the run. Download it from the run page, then install. The debug signing key is committed

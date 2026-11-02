@@ -1,8 +1,8 @@
 """Scripted fake phone: drives the Hail backend without an Android device.
 
 It registers as an Android device, sends a ride request, answers every CHECK_FARES with
-canned observations, checks that BOOK is refused without a valid confirmation, confirms
-and reports the booking.
+canned observations, shows the options card, checks that a forged tap is refused, then
+"taps" an option and acknowledges the OPEN_APP handoff. Hail never books.
 
 Usage (from the backend/ directory):
   uv run python ../tools/fake_phone.py                      # in-process, offline fake LLM
@@ -72,6 +72,7 @@ def main() -> int:
     ap.add_argument("--base-url", help="Talk to a running server instead of in-process.")
     ap.add_argument("--llm", choices=["fake", "openrouter"], default="fake",
                     help="In-process only. 'openrouter' needs OPENROUTER_API_KEY in .env.")
+    ap.add_argument("--pick", help="option_id to tap instead of the highlighted one")
     args = ap.parse_args()
 
     http = make_transport(args)
@@ -108,25 +109,34 @@ def main() -> int:
         print("FAIL:", *failures, sep="\n  ")
         return 1
 
-    # The gate: BOOK must be refused without the real confirmation token.
-    forged = send({"type": "confirmation", "option_id": out["confirmation"]["option_id"],
-                   "token": "forged-token-forged-token"})
-    if forged["type"] == "booking_request":
-        failures.append("BOOK was emitted with a forged token")
+    print("OPTIONS (best first):")
+    for o in out["options"]:
+        star = "*" if o["option_id"] == out["recommended_option_id"] else " "
+        saves = f"  saves Rs{o['saves']}" if o.get("saves") else ""
+        print(f"  {star} {o['option_id']:6} {o['app']:7} {o['ride_type']:5} "
+              f"Rs{o['fare_min']:.0f}-{o['fare_max']:.0f}  {o['eta_minutes']} min{saves}")
+    print()
+    choice = args.pick or out["recommended_option_id"]
 
-    booking = send({"type": "confirmation", "option_id": out["confirmation"]["option_id"],
+    # The gate: no handoff without the real token from the card.
+    forged = send({"type": "confirmation", "option_id": choice,
+                   "token": "forged-token-forged-token"})
+    if forged["type"] == "handoff_request":
+        failures.append("OPEN_APP was emitted with a forged token")
+
+    handoff = send({"type": "confirmation", "option_id": choice,
                     "token": out["confirmation"]["token"], "accept": True})
-    if booking["type"] != "booking_request":
-        failures.append(f"expected booking_request after confirmation, got {booking['type']}")
+    if handoff["type"] != "handoff_request":
+        failures.append(f"expected handoff_request after the tap, got {handoff['type']}")
     else:
-        done = send({"type": "tool_result", "action_id": booking["action_id"], "status": "ok",
-                     "booking": {"booked": True}})
+        done = send({"type": "tool_result", "action_id": handoff["action_id"], "status": "ok",
+                     "handoff": {"opened": True}})
         print(f"FINAL: {done.get('text')}")
 
     if failures:
         print("FAIL:", *failures, sep="\n  ")
         return 1
-    print("PASS: 3 fare checks -> recommendation -> forged confirmation refused -> BOOK")
+    print("PASS: 3 fare checks -> options card -> forged tap refused -> user's pick opened")
     return 0
 
 

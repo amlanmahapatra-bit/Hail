@@ -37,6 +37,8 @@
         </activity>
 
         <activity android:name=".ConsentActivity" android:exported="false" />
+        <activity android:name=".AppsActivity" android:exported="false"
+            android:label="Connected apps" />
         <activity android:name=".DebugActivity" android:exported="false"
             android:label="Hail debug" />
 

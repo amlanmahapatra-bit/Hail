@@ -12,7 +12,7 @@ import java.util.concurrent.Executors
 
 /**
  * Drives one session against the backend: sends the user's message, executes every
- * action_request / booking_request the backend returns, and hands anything that needs
+ * action_request / handoff_request the backend returns, and hands anything that needs
  * the user (assistant_message, recommendation, error) back to the UI.
  */
 class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
@@ -32,8 +32,11 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         sessionId = newId()
     }
 
-    fun sendText(text: String, l: Listener) =
-        run(JSONObject().put("type", "user_message").put("text", text), l)
+    /** [apps]: ride apps connected on this phone (installed + switched on). */
+    fun sendText(text: String, apps: List<String>, l: Listener) = run(
+        JSONObject().put("type", "user_message").put("text", text)
+            .put("available_apps", org.json.JSONArray(apps)), l
+    )
 
     fun confirm(optionId: String, token: String, accept: Boolean, l: Listener) = run(
         JSONObject().put("type", "confirmation").put("option_id", optionId)
@@ -66,9 +69,13 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
                             if (!prefs.simulateFares) launchedApps = true
                             out = api.postMessage(sessionId, result)
                         }
-                        "booking_request" -> {
-                            main.post { l.onProgress("Booking…") }
-                            out = api.postMessage(sessionId, book(out.getString("action_id")))
+                        "handoff_request" -> {
+                            val action = out.getJSONObject("action")
+                            main.post { l.onProgress("Opening ${action.getString("app").replaceFirstChar { it.uppercase() }}…") }
+                            val result = openForBooking(out.getString("action_id"), action)
+                            // The user is now in the ride app to tap Book; don't pull them back.
+                            launchedApps = false
+                            out = api.postMessage(sessionId, result)
                         }
                         else -> {
                             val final = out
@@ -119,10 +126,20 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         return result.put("status", "failed").put("observations", JSONArray())
     }
 
-    /** Week 1: the booking tapper is not built yet, so nothing is ever booked. */
-    private fun book(actionId: String): JSONObject = JSONObject()
-        .put("type", "tool_result").put("action_id", actionId)
-        .put("status", if (AgentState.stopRequested) "stopped_by_user" else "failed")
+    /**
+     * The user tapped an option: open that app with the trip filled in. The user books it
+     * there. Hail never taps Book.
+     */
+    private fun openForBooking(actionId: String, action: JSONObject): JSONObject {
+        val app = action.getString("app")
+        val opened = RideApps.launch(
+            HailAccessibilityService.instance ?: ctx, app,
+            Place.from(action.getJSONObject("pickup")), Place.from(action.getJSONObject("drop"))
+        )
+        return JSONObject().put("type", "tool_result").put("action_id", actionId)
+            .put("status", if (opened) "ok" else "failed")
+            .put("handoff", JSONObject().put("opened", opened))
+    }
 
     private fun bringToFront() {
         val i = Intent(ctx, MainActivity::class.java)

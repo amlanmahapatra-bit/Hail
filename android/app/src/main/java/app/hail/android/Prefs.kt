@@ -22,6 +22,15 @@ class Prefs(context: Context) {
         get() = sp.getString("backend_url", BuildConfig.DEFAULT_BACKEND_URL)!!
         set(v) = sp.edit().putString("backend_url", v.trimEnd('/')).apply()
 
+    /** Ride apps the user switched on in Connected apps. Default: all three. */
+    var enabledApps: Set<String>
+        get() = sp.getStringSet("enabled_apps", null) ?: RideApps.packages.keys
+        set(v) = sp.edit().putStringSet("enabled_apps", v).apply()
+
+    var appsSetupDone: Boolean
+        get() = sp.getBoolean("apps_setup_done", false)
+        set(v) = sp.edit().putBoolean("apps_setup_done", v).apply()
+
     /** Debug builds only: answer CHECK_FARES with canned fares to test the loop end to end. */
     var simulateFares: Boolean
         get() = BuildConfig.DEBUG && sp.getBoolean("simulate", false)

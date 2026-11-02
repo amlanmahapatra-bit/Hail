@@ -31,6 +31,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
         val root = column()
         val top = row()
         top.addView(button("New") { runner.newSession(); log.removeAllViews(); say("New request.") })
+        top.addView(button("Apps") { startActivity(Intent(this, AppsActivity::class.java)) })
         top.addView(button("Debug") { startActivity(Intent(this, DebugActivity::class.java)) })
         root.addView(top)
         banner = text("", 14f).apply {
@@ -66,8 +67,13 @@ class MainActivity : Activity(), AgentRunner.Listener {
             startActivity(Intent(this, ConsentActivity::class.java))
             return
         }
+        if (!prefs.appsSetupDone) {
+            startActivity(Intent(this, AppsActivity::class.java))
+            return
+        }
         banner.text = when {
             prefs.simulateFares -> "TEST MODE: simulated fares"
+            AppsActivity.connected(this, prefs).isEmpty() -> "No ride apps connected. Tap Apps."
             !isAccessibilityEnabled() -> "Accessibility is off. Tap here to set it up."
             else -> ""
         }
@@ -79,7 +85,9 @@ class MainActivity : Activity(), AgentRunner.Listener {
         input.setText("")
         say("You: $t")
         busy = true
-        runner.sendText(t, this)
+        val apps = if (prefs.simulateFares) RideApps.packages.keys.toList()
+        else AppsActivity.connected(this, prefs)
+        runner.sendText(t, apps, this)
     }
 
     private fun say(s: String) {
@@ -104,33 +112,33 @@ class MainActivity : Activity(), AgentRunner.Listener {
         }
     }
 
+    /** Every option as a tappable row, best first; the recommended one is starred. */
     private fun showRecommendation(out: JSONObject) {
-        val rec = out.getJSONObject("recommended")
+        val best = out.getString("recommended_option_id")
+        val token = out.getJSONObject("confirmation").getString("token")
         val card = column().apply { setBackgroundColor(0x1A2196F3) }
         card.addView(text("Hail: ${out.optString("text")}"))
-        card.addView(text("→ ${fmt(rec)}", 18f))
-        out.optJSONObject("savings_if_booked")?.let {
-            card.addView(text("Saves ₹${it.getInt("amount")} vs ${fmt(it.getJSONObject("compared_against"))}", 14f))
-        }
-        val opts = out.getJSONArray("options")
-        card.addView(text((0 until opts.length()).joinToString("\n") { "  " + fmt(opts.getJSONObject(it)) }, 13f))
+        card.addView(text("Tap a ride to open it. You book it in that app.", 13f))
 
-        val conf = out.getJSONObject("confirmation")
-        val buttons = row()
-        lateinit var ok: android.widget.Button
-        lateinit var no: android.widget.Button
-        ok = button("Confirm") {
-            ok.isEnabled = false; no.isEnabled = false
-            busy = true
-            runner.confirm(conf.getString("option_id"), conf.getString("token"), true, this)
+        val opts = out.getJSONArray("options")
+        val buttons = mutableListOf<android.widget.Button>()
+        for (i in 0 until opts.length()) {
+            val o = opts.getJSONObject(i)
+            val id = o.getString("option_id")
+            val star = if (id == best) "★ " else ""
+            val saves = if (o.isNull("saves")) "" else "  ·  save ₹${o.getInt("saves")}"
+            buttons += button("$star${fmt(o)}$saves") {
+                buttons.forEach { it.isEnabled = false }
+                busy = true
+                runner.confirm(id, token, true, this)
+            }.apply { isAllCaps = false; textAlignment = android.view.View.TEXT_ALIGNMENT_VIEW_START }
         }
-        no = button("Cancel") {
-            ok.isEnabled = false; no.isEnabled = false
+        buttons += button("None of these") {
+            buttons.forEach { it.isEnabled = false }
             busy = true
-            runner.confirm(conf.getString("option_id"), conf.getString("token"), false, this)
+            runner.confirm(best, token, false, this)
         }
-        buttons.addView(ok); buttons.addView(no)
-        card.addView(buttons)
+        buttons.forEach { card.addView(it) }
         log.addView(card)
         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
     }

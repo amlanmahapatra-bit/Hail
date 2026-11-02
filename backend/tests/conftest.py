@@ -68,8 +68,11 @@ class Phone:
         assert r.status_code == expect, r.text
         return r.json()
 
-    def say(self, text: str, **kw) -> dict:
-        return self.post({"type": "user_message", "text": text}, **kw)
+    def say(self, text: str, apps: list[str] | None = None, **kw) -> dict:
+        body = {"type": "user_message", "text": text}
+        if apps is not None:
+            body["available_apps"] = apps
+        return self.post(body, **kw)
 
     def answer_fare_checks(self, resp: dict) -> tuple[dict, list[str]]:
         apps = []
@@ -86,16 +89,24 @@ class Phone:
             )
         return resp, apps
 
-    def confirm(self, rec: dict, **over) -> dict:
-        c = rec["confirmation"]
+    def confirm(self, rec: dict, option_id: str | None = None, **over) -> dict:
+        """Tap an option on the card (default: the highlighted one)."""
+        body = {
+            "type": "confirmation",
+            "option_id": option_id or rec["recommended_option_id"],
+            "token": rec["confirmation"]["token"],
+            "accept": True,
+        }
+        return self.post(body | over)
+
+    def opened(self, handoff: dict, ok: bool = True) -> dict:
         return self.post(
             {
-                "type": "confirmation",
-                "option_id": c["option_id"],
-                "token": c["token"],
-                "accept": True,
+                "type": "tool_result",
+                "action_id": handoff["action_id"],
+                "status": "ok" if ok else "failed",
+                "handoff": {"opened": ok},
             }
-            | over
         )
 
 

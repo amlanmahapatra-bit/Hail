@@ -12,9 +12,9 @@ from app.protocol import App, FareObservation, Place, RideType
 class Status(StrEnum):
     IDLE = "idle"  # waiting for the user to say something
     AWAITING_TOOL_RESULT = "awaiting_tool_result"  # phone is checking fares
-    AWAITING_CONFIRMATION = "awaiting_confirmation"  # recommendation shown
-    BOOKING = "booking"  # BOOK sent to phone
-    DONE = "done"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"  # options card shown, user to pick
+    HANDING_OFF = "handing_off"  # OPEN_APP sent to phone
+    DONE = "done"  # chosen app opened; the user books there
 
 
 class ResolvedPlace(BaseModel):
@@ -31,7 +31,7 @@ class Option(BaseModel):
 
 class PendingAction(BaseModel):
     action_id: str
-    kind: Literal["CHECK_FARES", "BOOK"]
+    kind: Literal["CHECK_FARES", "OPEN_APP"]
     app: App
     option_id: str | None = None
     ride_types: list[RideType] = Field(default_factory=list)
@@ -49,7 +49,7 @@ class FareCheckBatch(BaseModel):
 
 
 class PendingConfirmation(BaseModel):
-    option_id: str
+    option_ids: list[str]  # every option shown on the card
     token_hash: str
     shown_at: datetime
     expires_at: datetime
@@ -69,7 +69,9 @@ class SessionState(BaseModel):
     recommended_option_id: str | None = None
     recommendation_reason: str | None = None
     confirmation: PendingConfirmation | None = None
-    booked_option_id: str | None = None
+    chosen_option_id: str | None = None
+    available_apps: list[App] | None = None  # apps the user connected on this phone
+    ranked_option_ids: list[str] = Field(default_factory=list)  # last rank_options order
     action_seq: int = 0
 
     def next_action_id(self) -> str:

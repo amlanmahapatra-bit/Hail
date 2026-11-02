@@ -2,6 +2,15 @@
 
 The backend decides; the phone acts. All JSON, UTF-8, HTTPS in production.
 
+**Product flow:**
+1. The user asks for a ride.
+2. The phone checks fares in each connected app.
+3. The backend sends every option, best-first, with one highlighted.
+4. The user taps one.
+5. The phone opens that app with the trip filled in, and the user taps Book there.
+
+**Hail never books.**
+
 ## Auth
 
 `POST /v1/devices` once per install. The token is returned **once** and stored on the device
@@ -37,8 +46,16 @@ All other calls send `Authorization: Bearer <token>`.
 {"type": "user_message", "text": "Powai to Andheri station, cheapest",
  "location": {"lat": 19.1176, "lng": 72.9060, "label": "Current location"}}
 ```
-`location` is optional. Send it only with a live request, and only if the user said "from here"
-or similar. Any `user_message` cancels a pending confirmation.
+- `location` is optional. Send it only with a live request, and only if the user said "from here"
+  or similar.
+- `available_apps` lists the ride apps connected on this phone (installed and switched on in
+  Connected apps). Only these are checked. Omit it to allow all apps.
+- Any `user_message` cancels a pending options card.
+
+```json
+{"type": "user_message", "text": "Koramangala to MG Road, fastest",
+ "available_apps": ["uber", "rapido"]}
+```
 
 #### `tool_result`: answer to a CHECK_FARES action
 ```json
@@ -56,18 +73,18 @@ or similar. Any `user_message` cancels a pending confirmation.
 - Observations for a different app or ride type than the action asked for are discarded.
 - `stopped_by_user` (the Stop button) ends the fare check immediately.
 
-#### `tool_result`: answer to a BOOK action
+#### `tool_result`: answer to an OPEN_APP handoff
 ```json
-{"type": "tool_result", "action_id": "act_4", "status": "ok", "booking": {"booked": true}}
+{"type": "tool_result", "action_id": "act_4", "status": "ok", "handoff": {"opened": true}}
 ```
 
-#### `confirmation`
-Sent **only** by the Confirm/Cancel buttons on a recommendation card, never from typed text.
+#### `confirmation`: the user's tap on an option
+Sent **only** when the user taps an option row on the card (or "None of these"), never from
+typed text. `option_id` is whichever option they tapped, and must be one shown on the card.
 ```json
-{"type": "confirmation", "option_id": "opt_8", "token": "<token from the recommendation>",
- "accept": true}
+{"type": "confirmation", "option_id": "opt_5", "token": "<token from the card>", "accept": true}
 ```
-`"accept": false` declines.
+`"accept": false` means "None of these".
 
 ### Outbound (backend → phone)
 
@@ -76,9 +93,11 @@ Sent **only** by the Confirm/Cancel buttons on a recommendation card, never from
 {"type": "assistant_message", "session_id": "…", "text": "Where are you going?",
  "savings": null, "done": false}
 ```
-After a successful booking: `done: true`, and `savings` is set if there was a comparable option.
+After the chosen app was opened: `done: true`, and `savings` is set if there was a comparable
+option.
 ```json
-{"type": "assistant_message", "session_id": "…", "text": "Booked: Rapido auto. You saved ₹30.",
+{"type": "assistant_message", "session_id": "…",
+ "text": "Opened Rapido with your trip. Pick auto and tap Book there. You save ₹30.",
  "savings": {"amount": 30, "compared_against": {"option_id": "opt_2", "app": "uber",
    "ride_type": "auto", "fare_min": 180, "fare_max": 190, "eta_minutes": 4, "surge_flag": false}},
  "done": true}
@@ -96,24 +115,34 @@ One app per action. The phone opens that app via its coordinate deep link, reads
 returns a `tool_result`, and the backend replies with the next app's action, or with the
 recommendation after the last one.
 
-#### `recommendation`
+#### `recommendation`: the options card
+Every eligible option, best-first for the user's preference, with one highlighted.
+Options excluded by the user's constraints (e.g. bikes when they have luggage) are not listed.
+`saves` is what picking that option saves vs the priciest comparable option (same ride type).
 ```json
 {"type": "recommendation", "session_id": "…",
  "text": "Rapido auto is the cheapest that fits your luggage.",
- "recommended": {"option_id": "opt_8", "app": "rapido", "ride_type": "auto",
-   "fare_min": 150, "fare_max": 160, "eta_minutes": 5, "surge_flag": false},
- "options": [ /* every option from this round, cheapest first */ ],
- "savings_if_booked": {"amount": 30, "compared_against": { /* option */ }},
- "confirmation": {"option_id": "opt_8", "token": "Jx1…", "expires_at": "2026-11-02T08:32:00Z"}}
+ "recommended_option_id": "opt_7",
+ "options": [
+   {"option_id": "opt_7", "app": "rapido", "ride_type": "auto", "fare_min": 150, "fare_max": 160,
+    "eta_minutes": 5, "surge_flag": false, "saves": 30},
+   {"option_id": "opt_5", "app": "ola", "ride_type": "auto", "fare_min": 170, "fare_max": 185,
+    "eta_minutes": 7, "surge_flag": false, "saves": 8},
+   {"option_id": "opt_2", "app": "uber", "ride_type": "auto", "fare_min": 180, "fare_max": 190,
+    "eta_minutes": 4, "surge_flag": false, "saves": null}
+ ],
+ "confirmation": {"token": "Jx1…", "expires_at": "2026-11-02T08:32:00Z"}}
 ```
-Show a Confirm button. The token is single-use and expires (default 90 s). Do not log it.
+Show each option as a tappable row, plus "None of these". The token covers the whole card; it
+is single-use and expires (default 90 s). Do not log it.
 
-#### `booking_request`: BOOK
-The only message that tells the phone to book. The backend emits it only after a valid
-`confirmation` (see the gate below).
+#### `handoff_request`: OPEN_APP
+The only message that tells the phone to open a ride app for booking. The backend emits it only
+after a valid `confirmation` (see the gate below). The phone opens the app via its coordinate deep
+link, with pickup and drop filled in. The user taps Book in that app.
 ```json
-{"type": "booking_request", "session_id": "…", "action_id": "act_4",
- "action": {"kind": "BOOK", "app": "rapido", "option_id": "opt_8", "ride_type": "auto",
+{"type": "handoff_request", "session_id": "…", "action_id": "act_4",
+ "action": {"kind": "OPEN_APP", "app": "rapido", "option_id": "opt_7", "ride_type": "auto",
    "pickup": {"lat": 19.1176, "lng": 72.906, "label": "Powai"},
    "drop": {"lat": 19.1197, "lng": 72.8464, "label": "Andheri Station"}}}
 ```
@@ -129,20 +158,20 @@ Codes: `busy`, `unexpected_tool_result`, `no_pending_confirmation`, `bad_token`,
 
 ## The confirmation gate (enforced in `backend/app/gate.py`)
 
-A `booking_request` is produced only when all of these hold:
-1. a recommendation card was shown for option X,
-2. a `confirmation` for exactly option X arrives with that card's token,
+A `handoff_request` is produced only when all of these hold:
+1. an options card was shown,
+2. a `confirmation` arrives for an option that was on that card, with that card's token,
 3. after the card was shown and before `expires_at`,
 4. the token has not been used, and no `user_message` arrived in between.
 
-The LLM has no booking tool and never sees the token.
+The LLM has no booking or app-opening tool and never sees the token.
 
 ## Session state machine
 ```
 idle --user_message--> (LLM) --> action_request --> awaiting_tool_result
 awaiting_tool_result --tool_result--> next action_request | (LLM) --> recommendation
-recommendation --> awaiting_confirmation --confirmation(valid)--> booking_request --> booking
-booking --tool_result(booked)--> done (assistant_message with savings)
+recommendation --> awaiting_confirmation --confirmation(valid)--> handoff_request --> handing_off
+handing_off --tool_result(opened)--> done (assistant_message with savings; user books in the app)
 any user_message (when not busy) --> cancels pending confirmation --> idle --> (LLM)
 ```
 

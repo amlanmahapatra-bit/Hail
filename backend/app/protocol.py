@@ -87,10 +87,13 @@ class UserMessage(Strict):
     text: str = Field(min_length=1, max_length=500)
     # Device location, only sent with a live user request. Used for "from here".
     location: Place | None = None
+    # Ride apps the user has connected (installed, logged in, switched on) on this phone.
+    # None means "not stated", so all apps are allowed.
+    available_apps: list[App] | None = Field(default=None, max_length=len(App))
 
 
-class BookingOutcome(Strict):
-    booked: bool
+class HandoffOutcome(Strict):
+    opened: bool
 
 
 class ToolResult(Strict):
@@ -98,10 +101,12 @@ class ToolResult(Strict):
     action_id: Id
     status: Literal["ok", "failed", "app_not_installed", "not_logged_in", "stopped_by_user"]
     observations: list[FareObservation] = Field(default_factory=list, max_length=12)
-    booking: BookingOutcome | None = None
+    handoff: HandoffOutcome | None = None
 
 
 class Confirmation(Strict):
+    """The user's tap on one option of a recommendation card (or Cancel: accept=false)."""
+
     type: Literal["confirmation"] = "confirmation"
     option_id: Id
     token: str = Field(min_length=16, max_length=128)
@@ -129,6 +134,11 @@ class Savings(Strict):
     compared_against: OptionView
 
 
+class ChoiceOption(OptionView):
+    # What picking this option saves vs the priciest comparable option (None if nothing).
+    saves: int | None = None
+
+
 class CheckFaresAction(Strict):
     kind: Literal["CHECK_FARES"] = "CHECK_FARES"
     app: App
@@ -137,8 +147,10 @@ class CheckFaresAction(Strict):
     ride_types: list[RideType]
 
 
-class BookAction(Strict):
-    kind: Literal["BOOK"] = "BOOK"
+class OpenAppAction(Strict):
+    """Open the chosen app with the trip filled in. The user taps Book there; Hail never books."""
+
+    kind: Literal["OPEN_APP"] = "OPEN_APP"
     app: App
     option_id: str
     ride_type: RideType
@@ -147,7 +159,6 @@ class BookAction(Strict):
 
 
 class ConfirmationPrompt(Strict):
-    option_id: str
     token: str
     expires_at: datetime
 
@@ -170,20 +181,21 @@ class ActionRequest(_Out):
 
 
 class Recommendation(_Out):
+    """All options, best-first for the user's preference, with one highlighted. The user picks."""
+
     type: Literal["recommendation"] = "recommendation"
     text: str
-    recommended: OptionView
-    options: list[OptionView]
-    savings_if_booked: Savings | None
+    recommended_option_id: str
+    options: list[ChoiceOption]
     confirmation: ConfirmationPrompt
 
 
-class BookingRequest(_Out):
-    """The ONLY way a BOOK action leaves the backend. Built solely by gate.authorize_booking."""
+class HandoffRequest(_Out):
+    """The ONLY way OPEN_APP leaves the backend. Built solely by gate.authorize_handoff."""
 
-    type: Literal["booking_request"] = "booking_request"
+    type: Literal["handoff_request"] = "handoff_request"
     action_id: str
-    action: BookAction
+    action: OpenAppAction
 
 
 class ErrorResponse(_Out):
@@ -193,7 +205,7 @@ class ErrorResponse(_Out):
     retryable: bool = False
 
 
-Outbound = AssistantMessage | ActionRequest | Recommendation | BookingRequest | ErrorResponse
+Outbound = AssistantMessage | ActionRequest | Recommendation | HandoffRequest | ErrorResponse
 
 
 # ---------- Device registration ----------

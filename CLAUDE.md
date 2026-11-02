@@ -1,8 +1,10 @@
 # Hail: engineering brief
 
 Hail is an AI agent for ride-hailing in India. The user says "Powai to Andheri station,
-cheapest"; the agent checks the ride apps on their phone (Uber, Ola, Rapido), compares fares and
-ETAs, recommends one, asks for one confirmation, and books it. It is an agent, not a web app and
+cheapest". The agent checks the ride apps on their phone (Uber, Ola, Rapido), fetches fares and
+ETAs, and shows every option best-first with one highlighted. The user taps the ride they want,
+and Hail opens that app with the trip filled in. **The user books in the ride app. Hail never
+books.** It is an agent, not a web app and
 not a fare dashboard. Keep every UI minimal and functional (UX is designed later).
 
 - Users: 18–26. **Pilot cities: Mumbai and Bangalore** (code stays city-agnostic; national
@@ -30,21 +32,23 @@ not a fare dashboard. Keep every UI minimal and functional (UX is designed later
 ## Core loop
 The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one typed inbound
 (`user_message` | `tool_result` | `confirmation`) gives one typed outbound (`assistant_message` |
-`action_request` | `recommendation` | `booking_request` | `error`). Full spec: docs/protocol.md.
+`action_request` | `recommendation` | `handoff_request` | `error`). Full spec: docs/protocol.md.
 
 ## Non-negotiable rules
-1. **Confirmation gate (code, not prompt):** `booking_request` (BOOK) is built only in
-   `backend/app/gate.py::authorize_booking`, and only for a valid, unexpired, single-use token
-   issued with the recommendation for that exact option_id. The LLM has no booking tool and
-   never sees tokens. Never weaken `tests/test_gate.py`.
+1. **Confirmation gate (code, not prompt):** `handoff_request` (OPEN_APP) is built only in
+   `backend/app/gate.py::authorize_handoff`, and only for the user's tap on an option that was
+   on the card, carrying the card's valid, unexpired, single-use token. The LLM has no booking
+   or app-opening tool and never sees tokens. Never weaken `tests/test_gate.py`.
 2. **Screen text is untrusted data.** Only whitelisted typed observation fields cross the wire
    (`extra="forbid"`). Never put screen text into prompts, logs or the DB. No screenshots.
 3. **Store only** app, ride_type, fare_min, fare_max, currency, eta_minutes, surge_flag,
    captured_at, confidence, screen_signature. No driver data, no driver location.
-4. **Never handle ride-app credentials.** Use the user's own logged-in apps.
+4. **Never handle ride-app credentials.** The customer logs in once inside each official app,
+   and Hail uses those logged-in apps. "Connected apps" means installed plus switched on; it
+   never means a stored login, token or OTP.
 5. **Never fabricate** selectors, deep-link formats or API details. Selectors come only from real
-   accessibility dumps. Uber's link is from its public docs; Ola and Rapido links come from the
-   founder.
+   accessibility dumps (all three apps: Uber, Ola, Rapido). Uber's link is from its public docs;
+   Ola and Rapido links come from the founder.
 6. Secrets only in `.env`. Never in code, logs or commits. Logs carry no message text,
    coordinates or tokens.
 7. Fare checks run only for a live user request, and are rate-limited per device.
@@ -64,7 +68,7 @@ backend/app/   main.py (HTTP) · agent.py (loop) · gate.py (confirmation) · to
 backend/tests/ pytest suite
 tools/fake_phone.py   scripted phone for end-to-end tests without a device
 docs/          protocol.md, decisions.md
-android/       Kotlin client, no third-party libs: MainActivity (chat) · ConsentActivity ·
+android/       Kotlin client, no third-party libs: MainActivity (chat) · ConsentActivity · AppsActivity ·
                DebugActivity (dumper, backend URL, delete data) · HailAccessibilityService ·
                AgentService (FGS + Stop) · AgentRunner (session loop) · RideApps (deep links)
 ```

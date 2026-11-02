@@ -232,15 +232,17 @@ class FakeLLM:
         if not ranked:
             return self._turn("None of the apps had a ride that fits. Want me to try again?", [])
         best = ranked[0]["option_id"]
-        if "recommend_ride" not in results:
+        if "present_options" not in results:
             return self._turn(
                 None,
                 [
                     self._call(
-                        "recommend_ride",
-                        {"option_id": best, "reason": f"Best match for {req['preference']}."},
-                    ),
-                    self._call("request_confirmation", {"option_id": best}),
+                        "present_options",
+                        {
+                            "recommended_option_id": best,
+                            "reason": f"Best match for {req['preference']}.",
+                        },
+                    )
                 ],
             )
-        return self._turn("Tap Confirm to book, or tell me what to change.", [])
+        return self._turn("Pick an option above, or tell me what to change.", [])

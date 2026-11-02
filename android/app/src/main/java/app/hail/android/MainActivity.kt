@@ -45,7 +45,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
 
         val bottom = row()
         input = EditText(this).apply {
-            hint = "e.g. Powai to Andheri station, cheapest"
+            hint = "e.g. to Koramangala, cheapest"
             isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_SEND
             setOnEditorActionListener { _, _, _ -> send(); true }
@@ -55,10 +55,16 @@ class MainActivity : Activity(), AgentRunner.Listener {
         root.addView(bottom)
         setContentView(root)
 
+        val wanted = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        say("Where to? Tell me pickup, drop, and cheapest / fastest.")
+        ) wanted += Manifest.permission.POST_NOTIFICATIONS
+        // Location: only for "pickup = where I am", read when you send a request.
+        if (!Here.granted(this)) wanted += listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
+        )
+        if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
+        say("Where to? e.g. \"to Koramangala, cheapest\" (pickup = where you are) or \"Powai to Andheri station\".")
     }
 
     override fun onResume() {

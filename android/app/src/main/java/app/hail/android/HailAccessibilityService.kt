@@ -74,27 +74,73 @@ class HailAccessibilityService : AccessibilityService() {
             .put("nodes", nodes)
     }
 
+    data class Snap(val nodes: List<ScreenNode>, val infos: List<AccessibilityNodeInfo>)
+
     /**
-     * Text + bounds of every node in [pkg]'s window. Used only by the fare reader, only while
-     * a user-started check is running, and never stored or sent: the reader turns it into
-     * catalog keys and numbers.
+     * Text, bounds and editability of every node in [pkg]'s window. Used only by the fare
+     * reader and navigator, only while a user-started check is running, and never stored or
+     * sent: the reader turns it into catalog keys and numbers.
      */
-    fun snapshot(pkg: String): List<ScreenNode>? {
+    fun snap(pkg: String): Snap? {
         if (!AgentState.active) return null
         val root = rootFor(pkg) ?: return null
-        val out = ArrayList<ScreenNode>(256)
+        val nodes = ArrayList<ScreenNode>(256)
+        val infos = ArrayList<AccessibilityNodeInfo>(256)
         fun walk(n: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 80 || out.size > 4000) return
+            if (depth > 80 || nodes.size > 4000) return
             val t = n.text?.toString()
             val d = n.contentDescription?.toString()
-            if (!t.isNullOrBlank() || !d.isNullOrBlank()) {
+            if (!t.isNullOrBlank() || !d.isNullOrBlank() || n.isEditable) {
                 val r = Rect().also { n.getBoundsInScreen(it) }
-                out += ScreenNode(t, d, r.left, r.top, r.right, r.bottom)
+                nodes += ScreenNode(t, d, r.left, r.top, r.right, r.bottom, n.isEditable, n.isFocused)
+                infos += n
             }
             for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
         }
         walk(root, 0)
-        return out
+        return Snap(nodes, infos)
+    }
+
+    fun snapshot(pkg: String): List<ScreenNode>? = snap(pkg)?.nodes
+
+    /**
+     * Taps a node: the node or its nearest clickable ancestor, else a gesture at its centre
+     * (for apps whose views don't expose click actions). Refuses booking/payment buttons.
+     */
+    fun tap(info: AccessibilityNodeInfo, label: String?): Boolean {
+        if (!AgentState.active || AgentState.stopRequested) return false
+        if (label != null && Navigator.NEVER_TAP.containsMatchIn(label)) return false
+        var n: AccessibilityNodeInfo? = info
+        var depth = 0
+        while (n != null && depth < 6) {
+            if (n.isClickable) {
+                val l = n.text?.toString() ?: n.contentDescription?.toString()
+                if (l != null && Navigator.NEVER_TAP.containsMatchIn(l)) return false
+                return n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
+            n = n.parent
+            depth++
+        }
+        val r = Rect().also { info.getBoundsInScreen(it) }
+        val path = android.graphics.Path().apply { moveTo(r.exactCenterX(), r.exactCenterY()) }
+        val stroke = android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 60)
+        return dispatchGesture(android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    /** Types into a field: set text directly, else paste it. The clipboard is cleared after. */
+    fun typeInto(info: AccessibilityNodeInfo, text: String): Boolean {
+        if (!AgentState.active || AgentState.stopRequested) return false
+        info.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        info.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        val args = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        if (info.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
+        val cm = getSystemService(android.content.ClipboardManager::class.java) ?: return false
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("hail", text))
+        val ok = info.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        if (android.os.Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip()
+        return ok
     }
 
     /** Scrolls the biggest scrollable list in [pkg]'s window. False if nothing scrolled. */

@@ -18,6 +18,8 @@ data class ScreenNode(
     val top: Int,
     val right: Int,
     val bottom: Int,
+    val editable: Boolean = false,
+    val focused: Boolean = false,
 ) {
     val label: String? get() = text?.takeIf { it.isNotBlank() } ?: desc?.takeIf { it.isNotBlank() }
     val centerY: Int get() = (top + bottom) / 2
@@ -44,6 +46,7 @@ data class AppReaderConfig(
     val etaPatterns: List<Regex>,
     val products: List<ProductSpec>,
     val pricePattern: Regex,
+    val nav: NavConfig = NavConfig(emptyList(), emptyList()),
 )
 
 enum class ScreenState { LOGGED_OUT, RIDE_IN_PROGRESS, LOADING, FARE_LIST, UNKNOWN }

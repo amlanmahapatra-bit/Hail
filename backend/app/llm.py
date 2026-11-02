@@ -141,11 +141,14 @@ _RIDE_WORDS = {"auto": "auto", "rickshaw": "auto", "bike": "bike", "cab": "cab",
 
 
 def parse_request(text: str) -> dict[str, Any] | None:
-    t = text.lower()
+    t = text.lower().strip()
     m = re.search(r"(?:from\s+)?(.+?)\s+to\s+(.+)", t)
-    if not m:
+    if m:
+        pickup, rest = m.group(1).strip(), m.group(2)
+    elif t.startswith("to "):  # "to Andheri station": pickup is where the user is
+        pickup, rest = "current location", t[3:]
+    else:
         return None
-    pickup, rest = m.group(1).strip(), m.group(2)
     drop = re.split(r"[,.;!?]", rest)[0].strip()
     words = set(re.findall(r"[a-z]+", rest))
     drop = re.sub(r"\b(cheapest|cheap|fastest|quickest|by|in an?|an?|please)\b.*$", "", drop)

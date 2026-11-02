@@ -30,6 +30,7 @@ from app.protocol import (
     ErrorResponse,
     FareObservation,
     Outbound,
+    Place,
     Recommendation,
     RideType,
     ToolResult,
@@ -232,13 +233,24 @@ class Agent:
                 place, city = s.device_location, "unknown"
             else:
                 hit = geocode(query, a.get("city"))
-                if hit is None:
-                    raise ToolError(f"place not found: {query[:60]}")
-                place, city = hit.place, hit.city
+                if hit is not None:
+                    place, city = hit.place, hit.city
+                else:
+                    # Not in our list: pass the name through; the ride apps' own search finds it.
+                    label = " ".join(query.split())[:80]
+                    place, city = Place(label=label), "unknown"
             pid = f"pl_{len(s.places) + 1}"
-            s.places[pid] = ResolvedPlace(place_id=pid, city=city, place=place)
+            here = query.lower() in CURRENT_LOCATION
+            s.places[pid] = ResolvedPlace(
+                place_id=pid, city=city, place=place, is_device_location=here
+            )
             # Coordinates stay server-side; the model only needs the id and label.
-            return {"place_id": pid, "label": place.label, "city": city}
+            return {
+                "place_id": pid,
+                "label": place.label,
+                "city": city,
+                "found_by": "map" if place.lat is not None else "ride_app_search",
+            }
 
         if call.name == "rank_options":
             req = RankRequest.model_validate(a)
@@ -317,6 +329,7 @@ class Agent:
                     pickup=s.places[b.pickup_id].place,
                     drop=s.places[b.drop_id].place,
                     ride_types=b.ride_types,
+                    pickup_is_current_location=s.places[b.pickup_id].is_device_location,
                 ),
             )
         self._close_batch(ctx)

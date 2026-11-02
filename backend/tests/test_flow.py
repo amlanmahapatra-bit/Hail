@@ -35,6 +35,7 @@ def test_full_loop_cheapest(phone):
         "ride_type": "bike",
         "pickup": a["pickup"],
         "drop": a["drop"],
+        "pickup_is_current_location": False,
     }
 
     done = phone.opened(handoff)
@@ -123,10 +124,14 @@ def test_no_connected_apps(phone):
     assert out["type"] == "assistant_message"
 
 
-def test_unknown_place_asks_user(phone):
-    resp = phone.say("Atlantis to Andheri station")
-    assert resp["type"] == "assistant_message"
-    assert "couldn't find" in resp["text"]
+def test_unknown_place_is_passed_by_name(phone):
+    """Not in our place list: the name goes to the phone, whose ride apps search for it."""
+    resp = phone.say("Mesa School of Business to FF21 Maya Student Hostel, cheapest")
+    assert resp["type"] == "action_request"
+    drop = resp["action"]["drop"]
+    assert drop == {"lat": None, "lng": None, "label": "ff21 maya student hostel"}
+    rec, _ = phone.answer_fare_checks(resp)
+    assert rec["type"] == "recommendation"
 
 
 def test_stop_mid_check(phone):
@@ -157,3 +162,26 @@ def test_ios_device_cannot_request_fare_checks(client, clock):
     resp = ios.say("Powai to Andheri station")
     assert resp["type"] == "assistant_message"
     assert "can't check live fares" in resp["text"]
+
+
+def test_no_pickup_means_current_location(phone):
+    here = {"lat": 12.8875, "lng": 77.5970, "label": "Current location"}
+    resp = phone.post(
+        {"type": "user_message", "text": "to Koramangala, cheapest", "location": here}
+    )
+    assert resp["type"] == "action_request"
+    a = resp["action"]
+    assert a["pickup"] == here and a["pickup_is_current_location"] is True
+    rec, _ = phone.answer_fare_checks(resp)
+    handoff = phone.confirm(rec)
+    assert handoff["action"]["pickup_is_current_location"] is True
+
+
+def test_named_pickup_is_not_current_location(phone):
+    resp = phone.say("Powai to Andheri station")
+    assert resp["action"]["pickup_is_current_location"] is False
+
+
+def test_no_pickup_without_location_asks(phone):
+    out = phone.say("to Koramangala")
+    assert out["type"] == "assistant_message"

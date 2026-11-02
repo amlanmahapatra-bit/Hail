@@ -35,7 +35,8 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
     /** [apps]: ride apps connected on this phone (installed + switched on). */
     fun sendText(text: String, apps: List<String>, l: Listener) = run(
         JSONObject().put("type", "user_message").put("text", text)
-            .put("available_apps", org.json.JSONArray(apps)), l
+            .put("available_apps", org.json.JSONArray(apps))
+            .apply { Here.now(ctx)?.let { put("location", it) } }, l
     )
 
     fun confirm(optionId: String, token: String, accept: Boolean, l: Listener) = run(
@@ -54,10 +55,7 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         exec.execute {
             var launchedApps = false
             try {
-                if (RideApps.config == null) {
-                    RideApps.config = runCatching { api.readersConfig() }.getOrNull()
-                    RideApps.readers = RideApps.config?.let { c -> runCatching { ReaderConfigs.parse(c) }.getOrNull() }.orEmpty()
-                }
+                RideApps.ensureConfig(ctx) { api.readersConfig() }
                 var out = api.postMessage(sessionId, first)
                 while (true) {
                     when (out.optString("type")) {
@@ -95,11 +93,48 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         }
     }
 
-    private fun checkFares(actionId: String, action: JSONObject): JSONObject {
+    /**
+     * Debug "Test fare check": runs one app's fare check on this phone, no backend involved.
+     * Pickup is the phone's location as the app sees it; the destination is searched by name.
+     * The result stays on the phone (shown on the Debug screen only).
+     */
+    fun testCheck(app: String, destination: String, done: (String) -> Unit) {
+        AgentState.stopRequested = false
+        AgentService.show(ctx, "Test: checking $app…")
+        exec.execute {
+            val report = StringBuilder()
+            try {
+                RideApps.ensureConfig(ctx) { runCatching { api.readersConfig() }.getOrNull() }
+                val action = JSONObject().put("app", app)
+                    .put("pickup", JSONObject().put("lat", JSONObject.NULL).put("lng", JSONObject.NULL).put("label", "Current location"))
+                    .put("drop", JSONObject().put("lat", JSONObject.NULL).put("lng", JSONObject.NULL).put("label", destination))
+                    .put("ride_types", JSONArray(listOf("cab", "auto", "bike")))
+                    .put("pickup_is_current_location", true)
+                val r = checkFares("test", action, allowSimulate = false)
+                report.append("Status: ").append(r.optString("status")).append('\n')
+                val obs = r.optJSONArray("observations") ?: JSONArray()
+                for (i in 0 until obs.length()) {
+                    val o = obs.getJSONObject(i)
+                    val eta = if (o.isNull("eta_minutes")) "" else " · ${o.getInt("eta_minutes")} min"
+                    report.append("  ${RideApps.productName(app, o.getString("product"))}: ₹${o.getDouble("fare_min")}$eta\n")
+                }
+                report.append("Steps:\n").append(AgentState.seenFareText.joinToString("\n") { "  $it" })
+            } catch (e: Exception) {
+                report.append("Error: ${e.javaClass.simpleName}")
+            } finally {
+                AgentState.end()
+                AgentService.hide(ctx)
+                bringToFront(DebugActivity::class.java)
+            }
+            main.post { done(report.toString()) }
+        }
+    }
+
+    private fun checkFares(actionId: String, action: JSONObject, allowSimulate: Boolean = true): JSONObject {
         val app = action.getString("app")
         val result = JSONObject().put("type", "tool_result").put("action_id", actionId)
         if (AgentState.stopRequested) return result.put("status", "stopped_by_user")
-        if (prefs.simulateFares) {
+        if (allowSimulate && prefs.simulateFares) {
             return result.put("status", "ok")
                 .put("observations", simulated(app, action.getJSONArray("ride_types")))
         }
@@ -107,16 +142,18 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         val svc = HailAccessibilityService.instance ?: return result.put("status", "failed")
 
         AgentState.seenFareText.clear()
+        pickupUnverified = false
         val pkg = RideApps.packages.getValue(app)
         val cfg = RideApps.readers[app]
         AgentState.begin(pkg)
         try {
-            val launched = RideApps.launch(
-                svc, app,
-                Place.from(action.getJSONObject("pickup")), Place.from(action.getJSONObject("drop"))
-            )
-            if (!launched) return result.put("status", "failed")
             if (cfg == null) return result.put("status", "failed") // no reader config yet
+            val pickup = Place.from(action.getJSONObject("pickup"))
+            val drop = Place.from(action.getJSONObject("drop"))
+            val pickupIsHere = action.optBoolean("pickup_is_current_location", false)
+            val goal = NavGoal(dropQuery = drop.label, pickupQuery = if (pickupIsHere) null else pickup.label)
+            val reach = reachFareList(svc, app, pkg, cfg, pickup, drop, goal)
+            if (reach != null) return result.put("status", reach)
             val wanted = action.getJSONArray("ride_types").let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
             return when (val r = readFareList(svc, pkg, cfg)) {
                 is ReadResult.Fares -> result.put("status", "ok")
@@ -126,6 +163,62 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         } finally {
             AgentState.end()
         }
+    }
+
+    /**
+     * Gets the app onto the fare list for this trip. Tries the deep link first (Uber, Ola),
+     * and if that doesn't show the fare list within a few seconds, navigates like a person:
+     * search bar, destination, suggestion. Returns null on success, else a tool_result status.
+     */
+    private fun reachFareList(
+        svc: HailAccessibilityService, app: String, pkg: String, cfg: AppReaderConfig,
+        pickup: Place, drop: Place, goal: NavGoal,
+    ): String? {
+        if (RideApps.launchDeepLink(svc, app, pickup, drop)) {
+            val until = System.currentTimeMillis() + DEEP_LINK_WAIT_MS
+            while (System.currentTimeMillis() < until) {
+                if (AgentState.stopRequested) return "stopped_by_user"
+                Thread.sleep(POLL_MS)
+                val nodes = svc.snapshot(pkg) ?: continue
+                when (FareReader.state(nodes, cfg)) {
+                    ScreenState.FARE_LIST -> return null
+                    ScreenState.LOGGED_OUT -> return "not_logged_in"
+                    else -> Unit
+                }
+            }
+            debug("$app: deep link didn't reach the fare list, navigating")
+        }
+        if (!RideApps.launchHome(svc, app)) return "app_not_installed"
+        val mem = NavMemory()
+        val deadline = System.currentTimeMillis() + NAV_TIMEOUT_MS
+        Thread.sleep(LAUNCH_SETTLE_MS)
+        while (System.currentTimeMillis() < deadline) {
+            if (AgentState.stopRequested) return "stopped_by_user"
+            val snap = svc.snap(pkg)
+            if (snap == null) { Thread.sleep(POLL_MS); continue }
+            val step = Navigator.decide(snap.nodes, cfg, goal, mem)
+            debug("$app: ${step.javaClass.simpleName} ${(step as? NavAction.Tap)?.why ?: (step as? NavAction.Type)?.why ?: (step as? NavAction.Wait)?.why ?: (step as? NavAction.Fail)?.why ?: ""}")
+            when (step) {
+                NavAction.Arrived -> {
+                    if (mem.pickupUnverified) pickupUnverified = true
+                    return null
+                }
+                is NavAction.Fail -> return step.status
+                is NavAction.Tap -> svc.tap(snap.infos[step.index], snap.nodes[step.index].label)
+                is NavAction.Type -> svc.typeInto(snap.infos[step.index], step.text)
+                NavAction.Back -> svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+                is NavAction.Wait -> Unit
+            }
+            Thread.sleep(if (step is NavAction.Type) TYPE_SETTLE_MS else POLL_MS)
+        }
+        return "failed"
+    }
+
+    /** Set when the app's pickup couldn't be changed from the current location; lowers confidence. */
+    @Volatile private var pickupUnverified = false
+
+    private fun debug(msg: String) {
+        if (BuildConfig.DEBUG) AgentState.seenFareText.add(msg)
     }
 
     private sealed class ReadResult {
@@ -149,10 +242,14 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
                 ScreenState.LOGGED_OUT -> return ReadResult.Status("not_logged_in")
                 ScreenState.FARE_LIST -> {
                     val fares = FareReader.parse(nodes, cfg)
-                    if (BuildConfig.DEBUG) AgentState.seenFareText.add("${cfg.app}: ${fares.size} fares read")
+                    debug("${cfg.app}: ${fares.size} fares read")
                     stablePolls = if (fares.isNotEmpty() && fares == last) stablePolls + 1 else 0
                     last = fares
-                    if (stablePolls >= 1) return ReadResult.Fares(collectBelowFold(svc, pkg, cfg, fares), 0.9)
+                    if (stablePolls >= 1) {
+                        // Lower confidence if the trip on screen may not be ours.
+                        val conf = if (pickupUnverified) 0.6 else 0.9
+                        return ReadResult.Fares(collectBelowFold(svc, pkg, cfg, fares), conf)
+                    }
                 }
                 else -> stablePolls = 0
             }
@@ -195,17 +292,31 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
      */
     private fun openForBooking(actionId: String, action: JSONObject): JSONObject {
         val app = action.getString("app")
-        val opened = RideApps.launch(
-            HailAccessibilityService.instance ?: ctx, app,
-            Place.from(action.getJSONObject("pickup")), Place.from(action.getJSONObject("drop"))
-        )
+        val pickup = Place.from(action.getJSONObject("pickup"))
+        val drop = Place.from(action.getJSONObject("drop"))
+        val svc = HailAccessibilityService.instance
+        val pkg = RideApps.packages[app]
+        val cfg = RideApps.readers[app]
+        var opened = false
+        if (svc != null && pkg != null && cfg != null) {
+            // Same route as the fare check, so the user lands on this trip's ride list and only
+            // has to pick the ride type and tap Book. Hail stops there.
+            val here = action.optBoolean("pickup_is_current_location", false)
+            AgentState.begin(pkg)
+            try {
+                opened = reachFareList(svc, app, pkg, cfg, pickup, drop, NavGoal(drop.label, if (here) null else pickup.label)) == null
+            } finally {
+                AgentState.end()
+            }
+        }
+        if (!opened) opened = RideApps.launch(svc ?: ctx, app, pickup, drop)
         return JSONObject().put("type", "tool_result").put("action_id", actionId)
             .put("status", if (opened) "ok" else "failed")
             .put("handoff", JSONObject().put("opened", opened))
     }
 
-    private fun bringToFront() {
-        val i = Intent(ctx, MainActivity::class.java)
+    private fun bringToFront(screen: Class<*> = MainActivity::class.java) {
+        val i = Intent(ctx, screen)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         runCatching { (HailAccessibilityService.instance ?: ctx).startActivity(i) }
     }
@@ -218,6 +329,10 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
 
     companion object {
         private const val READ_TIMEOUT_MS = 15_000L
+        private const val DEEP_LINK_WAIT_MS = 8_000L
+        private const val NAV_TIMEOUT_MS = 35_000L
+        private const val LAUNCH_SETTLE_MS = 1_500L
+        private const val TYPE_SETTLE_MS = 1_500L
         private const val POLL_MS = 700L
         private const val SCROLL_SETTLE_MS = 600L
         private const val MAX_SCROLLS = 4

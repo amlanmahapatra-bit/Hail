@@ -11,6 +11,7 @@ class DebugActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var status: android.widget.TextView
     private lateinit var seen: android.widget.TextView
+    private lateinit var testResult: android.widget.TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +32,26 @@ class DebugActivity : Activity() {
         col.addView(status)
         col.addView(button("Accessibility settings") { openAccessibilitySettings() })
         col.addView(button("App info (allow restricted settings)") { openAppInfo() })
+
+        col.addView(text("Test fare check (no server needed)", 18f))
+        col.addView(text(
+            "Type a destination, then tap an app. Hail opens it, finds your trip (pickup = where " +
+                "you are) and reads the fares. Hail never books. Results stay on this phone.", 14f
+        ))
+        val dest = EditText(this).apply { hint = "e.g. Koramangala Forum Mall"; isSingleLine = true }
+        col.addView(dest)
+        testResult = text("", 13f)
+        val apps = row()
+        for (app in listOf("uber", "ola", "rapido")) {
+            apps.addView(button(app.replaceFirstChar { it.uppercase() }) {
+                val d = dest.text.toString().trim()
+                if (d.isEmpty()) { toast("Type a destination first"); return@button }
+                testResult.text = "Checking $app…"
+                AgentRunner(applicationContext, prefs).testCheck(app, d) { testResult.text = it }
+            })
+        }
+        col.addView(apps)
+        col.addView(testResult)
 
         col.addView(text("Screen dumper", 18f))
         col.addView(text(

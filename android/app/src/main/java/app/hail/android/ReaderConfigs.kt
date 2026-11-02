@@ -8,11 +8,12 @@ object ReaderConfigs {
 
     fun parse(root: JSONObject): Map<String, AppReaderConfig> {
         val price = Regex(root.getString("price_pattern"))
+        val dismiss = strings(root.optJSONArray("dismiss_text"))
         val apps = root.getJSONObject("apps")
-        return apps.keys().asSequence().associateWith { app -> parseApp(app, apps.getJSONObject(app), price) }
+        return apps.keys().asSequence().associateWith { app -> parseApp(app, apps.getJSONObject(app), price, dismiss) }
     }
 
-    private fun parseApp(app: String, o: JSONObject, price: Regex): AppReaderConfig {
+    private fun parseApp(app: String, o: JSONObject, price: Regex, dismiss: List<String>): AppReaderConfig {
         val screens = o.optJSONObject("screens") ?: JSONObject()
         val products = o.optJSONObject("products") ?: JSONObject()
         return AppReaderConfig(
@@ -32,6 +33,7 @@ object ReaderConfigs {
                 )
             }.toList(),
             pricePattern = price,
+            nav = NavConfig(strings(o.optJSONObject("nav")?.optJSONArray("search_bar")), dismiss),
         )
     }
 

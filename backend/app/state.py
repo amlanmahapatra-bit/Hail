@@ -21,6 +21,7 @@ class ResolvedPlace(BaseModel):
     place_id: str
     city: str
     place: Place
+    is_device_location: bool = False  # the phone's own location ("from here")
 
 
 class Option(BaseModel):

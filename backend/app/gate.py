@@ -78,6 +78,7 @@ def authorize_handoff(
 
     pending.used = True
     pickup, drop = (state.places[p].place for p in state.trip)
+    pickup_here = state.places[state.trip[0]].is_device_location
     action_id = state.next_action_id()
     state.pending_action = PendingAction(
         action_id=action_id,
@@ -95,5 +96,6 @@ def authorize_handoff(
             ride_type=option.observation.ride_type,
             pickup=pickup,
             drop=drop,
+            pickup_is_current_location=pickup_here,
         ),
     )

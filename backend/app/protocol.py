@@ -41,9 +41,17 @@ Id = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
 
 
 class Place(Strict):
-    lat: float = Field(ge=-90, le=90)
-    lng: float = Field(ge=-180, le=180)
+    # Coordinates are optional: a place Hail can't geocode is passed by name, and the phone
+    # finds it with the ride app's own search (deep links need coordinates; navigation doesn't).
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
     label: Label
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> "Place":
+        if (self.lat is None) != (self.lng is None):
+            raise ValueError("lat and lng must be given together")
+        return self
 
 
 class FareObservation(Strict):
@@ -149,6 +157,8 @@ class CheckFaresAction(Strict):
     pickup: Place
     drop: Place
     ride_types: list[RideType]
+    # True when pickup is the phone's own location: the ride app's default pickup is used as-is.
+    pickup_is_current_location: bool = False
 
 
 class OpenAppAction(Strict):
@@ -160,6 +170,7 @@ class OpenAppAction(Strict):
     ride_type: RideType
     pickup: Place
     drop: Place
+    pickup_is_current_location: bool = False
 
 
 class ConfirmationPrompt(Strict):

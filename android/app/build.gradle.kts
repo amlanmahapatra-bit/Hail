@@ -48,6 +48,15 @@ android {
     }
 }
 
+// Bundle the reader config (single source: backend/app/readers_config.json) so the app can read
+// fares even before it has reached the backend, e.g. the Debug "Test fare check".
+val copyReaderConfig by tasks.registering(Copy::class) {
+    from(rootProject.file("../backend/app/readers_config.json"))
+    into(layout.buildDirectory.dir("generated/hailAssets"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/hailAssets"))
+tasks.named("preBuild") { dependsOn(copyReaderConfig) }
+
 dependencies {
     // Test-only. The app itself has no third-party dependencies.
     testImplementation("junit:junit:4.13.2")

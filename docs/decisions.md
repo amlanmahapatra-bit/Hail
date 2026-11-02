@@ -2,6 +2,32 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Lowest-cost toolchain (no Mac, minimal spend)
+- **Android builds: free.** GitHub Actions builds the debug APK on every push and attaches it
+  to the run. Download it from the run page, then install. The debug signing key is committed
+  (debug only) so each build installs over the last one.
+- **Android app: zero third-party libraries.** Platform Views, HttpURLConnection and org.json
+  only. This means a small APK (~0.9 MB), fast builds, and fewer things to break or update.
+  UI is code-only and bare on purpose.
+- **iPhone lite without a Mac:** v0 is an **Apple Shortcut** ("Hey Siri, Hail"). It needs no
+  Mac and no $99 developer account, and is shared by iCloud link. The Shortcut calls our
+  backend over HTTPS, shows the comparison, and opens the chosen app via its coordinate deep
+  link. A native iOS app (App Intents, ONDC booking) waits until the pilot justifies the Apple
+  Developer Program ($99/yr) plus cloud macOS build minutes (Codemagic free tier or GitHub
+  macOS runners). Nothing iOS-specific is built yet.
+- **Hosting:** Week 1 is free (laptop + Cloudflare quick tunnel). Pilot target is the Oracle Cloud
+  Always Free VM in the Mumbai region ($0, data in India). Fallback if Oracle has no capacity
+  or reclaims an idle instance: a ~$5/month VPS in Bangalore. The Docker image is the same
+  either way.
+- **LLM cost, measured** for one full request ("Powai to Andheri station, cheapest"; 4
+  model calls):
+  - `gemini-3.7-flash`: 4.4k input / 0.3k output tokens ≈ $0.0046 (≈ ₹0.40)
+  - `gemini-3.5-flash-lite`: 4.1k / 0.2k ≈ $0.0016 (≈ ₹0.14)
+
+  Both picked the right ride. At 50 users × 2 rides/day, that is ≈ $14/month (flash) or
+  ≈ $5/month (flash-lite). We keep flash as the default for reliability; switching is one
+  env var.
+
 ## 2026-11-02: LLM access through OpenRouter, pinned to Google
 - The only key we have is an OpenRouter key. We call Gemini through OpenRouter's
   OpenAI-compatible `/chat/completions` with function calling (plain `httpx`, no vendor SDK),

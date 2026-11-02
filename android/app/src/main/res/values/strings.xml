@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hail</string>
+    <string name="accessibility_label">Hail ride comparison</string>
+    <string name="accessibility_description">Hail reads fares, ETAs and the route from Uber, Ola and Rapido, and taps inside them, only while a ride request you started is running. It reads nothing from any other app, stores nothing else, and stops instantly from its notification.</string>
+    <string name="consent_text">Before Hail can compare rides, it needs Android\'s Accessibility permission. Here is exactly what that means.\n\nWHAT HAIL READS\n• Only Uber, Ola and Rapido. Android blocks it from every other app.\n• Only fares, ETAs and the route on the ride-selection screen.\n\nWHEN\n• Only while a ride request you started is running. You will always see a \"Hail is working\" notification with a Stop button.\n\nWHAT IS STORED\n• Fare, ETA, ride type and surge flag for each option. Never screenshots, screen text, your ride-app login, or anything about drivers.\n• Your pickup and drop are used for the request and deleted with the session.\n\nWHAT HAIL DOES\n• Opens each ride app with your pickup and drop, reads the fares, and books ONLY after you tap Confirm.\n\nYou can delete everything at any time from the Debug screen with Delete my data.</string>
+</resources>

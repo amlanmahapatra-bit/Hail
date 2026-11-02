@@ -21,3 +21,22 @@ jobs:
       - run: uv run pytest -q
       - name: Acceptance (fake phone, offline LLM)
         run: uv run python ../tools/fake_phone.py
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew && ./gradlew assembleDebug lintDebug --console=plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hail-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

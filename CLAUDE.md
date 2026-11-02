@@ -20,8 +20,10 @@ not a fare dashboard. Keep every UI minimal and functional (UX is designed later
 - **Android (first client):** native Kotlin. Bare chat screen, AccessibilityService (reads ride
   apps and taps), foreground service with persistent notification and Stop. Direct APK pilot
   (~50 users), not the Play Store. Strictly user-initiated, visible, instantly stoppable.
-- **iOS:** being scoped. iOS cannot read or tap other apps, so it uses fare estimates, ONDC and
-  deep-link handoff. The backend is platform-agnostic via `capabilities`.
+- **iOS lite (later):** iOS cannot read or tap other apps, so iOS gets fare estimates, ONDC
+  and deep-link handoff. v0 is an Apple Shortcut (no Mac, no developer account). The backend is
+  platform-agnostic via `capabilities`.
+- **Cost:** minimise spend. Free CI builds, zero third-party Android libraries, free-tier hosting.
 - **ONDC (later):** Buyer App on TRV10 v2.0.1, starting with Namma Yatri. `ondc_search` is a stub.
 - Out of scope now: web app, UI polish, WhatsApp, payments, live ONDC.
 
@@ -62,5 +64,7 @@ backend/app/   main.py (HTTP) · agent.py (loop) · gate.py (confirmation) · to
 backend/tests/ pytest suite
 tools/fake_phone.py   scripted phone for end-to-end tests without a device
 docs/          protocol.md, decisions.md
-android/       Kotlin client (in progress)
+android/       Kotlin client, no third-party libs: MainActivity (chat) · ConsentActivity ·
+               DebugActivity (dumper, backend URL, delete data) · HailAccessibilityService ·
+               AgentService (FGS + Stop) · AgentRunner (session loop) · RideApps (deep links)
 ```

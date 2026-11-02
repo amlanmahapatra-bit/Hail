@@ -31,6 +31,15 @@ class RideType(StrEnum):
     BIKE = "bike"
 
 
+class RideCategory(StrEnum):
+    """What the user picks: Auto (rickshaw), Bike, Cab, or Cab XL (SUV / 6-seater)."""
+
+    AUTO = "auto"
+    BIKE = "bike"
+    CAB = "cab"
+    CAB_XL = "cab_xl"
+
+
 class Platform(StrEnum):
     ANDROID = "android"
     IOS = "ios"
@@ -103,6 +112,8 @@ class UserMessage(Strict):
     available_apps: list[App] | None = Field(default=None, max_length=len(App))
     # "voice": the user spoke (the phone turned speech into this text). Replies are read aloud.
     input_mode: Literal["text", "voice"] = "text"
+    # The ride-type dropdown or a tapped choice. None: from the text, or Hail asks.
+    ride_category: RideCategory | None = None
 
 
 class HandoffOutcome(Strict):
@@ -162,6 +173,7 @@ class CheckFaresAction(Strict):
     pickup: Place
     drop: Place
     ride_types: list[RideType]
+    ride_category: RideCategory | None = None
     # True when pickup is the phone's own location: the ride app's default pickup is used as-is.
     pickup_is_current_location: bool = False
 
@@ -187,11 +199,19 @@ class _Out(Strict):
     session_id: str
 
 
+class Ask(Strict):
+    """A question with fixed answers; the phone shows them as buttons (and accepts speech)."""
+
+    field: Literal["ride_category"] = "ride_category"
+    choices: list[RideCategory]
+
+
 class AssistantMessage(_Out):
     type: Literal["assistant_message"] = "assistant_message"
     text: str
     savings: Savings | None = None
     done: bool = False
+    ask: Ask | None = None
 
 
 class ActionRequest(_Out):
@@ -206,8 +226,13 @@ class Recommendation(_Out):
     type: Literal["recommendation"] = "recommendation"
     text: str
     recommended_option_id: str
+    ride_category: RideCategory | None = None
     options: list[ChoiceOption]
     confirmation: ConfirmationPrompt
+    # When the prices were read from the apps (the oldest one), and whether they are live
+    # readings rather than test/recorded data.
+    prices_checked_at: datetime | None = None
+    live: bool = True
 
 
 class HandoffRequest(_Out):

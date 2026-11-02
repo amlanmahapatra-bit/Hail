@@ -131,16 +131,21 @@ class UiScreenshots {
         val log = scrollOf(a).getChildAt(0) as ViewGroup
         log.removeViewAt(log.childCount - 1)
         say(a, "You (voice): ${convo.getString("said")}")
+        a.onResponse(convo.getJSONObject("ask"))
+        save(a.window.decorView, "4b_which_ride")
+
+        buttons(scrollOf(a)).forEach { it.isEnabled = false } // the tap on "Auto"
+        say(a, "You: ${RideCategory.of(convo.getString("category"))!!.label}")
         val apps = convo.getJSONArray("apps_checked")
         for (i in 0 until apps.length()) a.onProgress("Checking ${apps.getString(i).replaceFirstChar { it.uppercase() }}…")
         a.onResponse(convo.getJSONObject("recommendation"))
         save(a.window.decorView, "5_options")
-        saveFull(scrollOf(a), "5b_options_full_list")
+        buttons(scrollOf(a)).firstOrNull { it.text.startsWith("Show ") }?.performClick()
+        saveFull(scrollOf(a), "5b_options_expanded")
 
         buttons(scrollOf(a)).forEach { it.isEnabled = false } // what a tap does
-        say(a, "You (voice): Ola auto")
         a.onResponse(convo.getJSONObject("done"))
-        save(a.window.decorView, "6_opened_ola")
+        save(a.window.decorView, "6_opened")
     }
 
     @Test fun s7_debug() {

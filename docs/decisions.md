@@ -2,6 +2,25 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Ride categories; Hail asks which one; live prices only
+- **Founder decision:** don't show all 30 rides. The user picks a category: **Auto** (rickshaw),
+  **Bike**, **Cab** (economy, AC, sedans, priority, luxury) or **Cab XL** (SUV / 6-seater). The
+  options are only that category, best first, top 4 plus "Show more".
+- It comes from, in order: words in the request ("rickshaw", "big cab", "badi gaadi", "XL"; checked in
+  code), the chat's **Ride type dropdown** (Any = ask), or **Hail asks** "Which ride would you like:
+  auto, bike, cab or cab XL?" with four buttons (tap, say, or type). The ask happens in code when the
+  model tries to check fares without a category, so it costs no extra model call. A new destination
+  asks again unless the dropdown is set.
+- **Tokens:** the model now sees only the chosen category's options, in a compact form. Measured with
+  Gemini on the recorded fares: 7,182 input tokens (all 30 rides) → 4,602 (Cab XL) / 5,299 (Cab).
+  After an ask, it's 6,407 (one extra model step). Most of what's left is the fixed prompt plus tool
+  definitions.
+- **Live prices:** fares come only from the ride apps on the user's phone, read at request time.
+  There is no public Uber, Ola or Rapido price API, and no caching. The backend now rejects readings
+  older than 3 minutes (`MAX_PRICE_AGE_SECONDS=180`) or from the future. Cards show "Live prices from
+  the apps · checked 12:16 PM". Simulated and recorded test fares are labelled "Test prices, not live"
+  (`live: false`) and can't pass as live.
+
 ## 2026-11-02: Voice mode (on-device speech, spoken picks)
 - **Founder decision:** voice is a core experience. The whole flow is hands-free: speak, Hail
   checks the apps, reads out the top 3, you say "Ola auto" / "the first one" / "haan", Hail opens it.

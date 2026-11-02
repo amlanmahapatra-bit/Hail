@@ -69,10 +69,15 @@ class Phone:
         assert r.status_code == expect, r.text
         return r.json()
 
-    def say(self, text: str, apps: list[str] | None = None, **kw) -> dict:
+    def say(
+        self, text: str, apps: list[str] | None = None, category: str | None = None, **kw
+    ) -> dict:
+        """category = the ride-type dropdown / button (None: Hail may ask)."""
         body = {"type": "user_message", "text": text}
         if apps is not None:
             body["available_apps"] = apps
+        if category is not None:
+            body["ride_category"] = category
         return self.post(body, **kw)
 
     def answer_fare_checks(self, resp: dict) -> tuple[dict, list[str]]:

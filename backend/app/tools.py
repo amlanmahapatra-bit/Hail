@@ -15,7 +15,7 @@ reachable through gate.py, after the user's tap. Hail never books; the user book
 from datetime import datetime
 from typing import Any
 
-from app.protocol import App, Capabilities, RideType
+from app.protocol import App, Capabilities, RideCategory
 
 
 def _fn(name: str, description: str, properties: dict[str, Any], required: list[str]):
@@ -52,9 +52,11 @@ REQUEST_FARE_CHECK = _fn(
         "pickup_id": {"type": "string", "description": "place_id from geocode_place"},
         "drop_id": {"type": "string", "description": "place_id from geocode_place"},
         "apps": {"type": "array", "items": {"type": "string", "enum": [a.value for a in App]}},
-        "ride_types": {
-            "type": "array",
-            "items": {"type": "string", "enum": [r.value for r in RideType]},
+        "ride_category": {
+            "type": "string",
+            "enum": [c.value for c in RideCategory],
+            "description": "auto (rickshaw), bike, cab, or cab_xl (SUV / bigger cab). Only if the "
+            "user said it; otherwise omit and Hail asks them.",
         },
     },
     ["pickup_id", "drop_id"],
@@ -66,7 +68,6 @@ RANK_OPTIONS = _fn(
     "Uses the stored observations; you do not pass fares in.",
     {
         "preference": {"type": "string", "enum": ["cheapest", "fastest", "balanced"]},
-        "ride_type": {"type": "string", "enum": [r.value for r in RideType]},
         "luggage": {"type": "boolean", "description": "User has luggage (excludes bikes)."},
         "late_night": {"type": "boolean", "description": "Late-night ride (safety weighted)."},
     },
@@ -108,11 +109,11 @@ Flow:
 1. geocode_place for pickup and drop. If the user gives no pickup ("to Andheri station"), the
    pickup is where they are: geocode_place with query "current location". If a place is not
    found, ask the user.
-2. request_fare_check with both place_ids. Omit apps to check every app the user has
-   connected, unless they excluded one.
+2. request_fare_check with both place_ids, and ride_category if the user named one (auto /
+   rickshaw, bike, cab, cab_xl = SUV or bigger cab). If they didn't, omit it: Hail asks them
+   and you'll get their answer as the next message. Omit apps to check every connected app.
 3. rank_options with the user's preference: cheapest, fastest or balanced (default).
-   Set ride_type if they asked for cab/auto/bike, luggage if they mentioned bags,
-   late_night if they said so.
+   Set luggage if they mentioned bags, late_night if they said so.
 4. present_options with the top-ranked option as recommended_option_id and a short reason.
 
 Rules:

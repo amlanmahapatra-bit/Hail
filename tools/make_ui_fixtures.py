@@ -32,6 +32,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--llm", choices=["fake", "openrouter"], default="fake")
     ap.add_argument("--text", default="Koramangala jaana hai sasta wala")
+    ap.add_argument("--category", default="auto")
     args = ap.parse_args()
     settings = Settings(hail_llm=args.llm, database_url=f"sqlite:///{tempfile.mkdtemp()}/ui.db")
     c = TestClient(create_app(settings))
@@ -44,7 +45,10 @@ def main() -> None:
     def post(body):
         return c.post(f"/v1/sessions/{sid}/messages", json=body, headers=h).json()
 
-    out = post({"type": "user_message", "text": args.text, "input_mode": "text", "location": here})
+    ask = post({"type": "user_message", "text": args.text, "input_mode": "text", "location": here})
+    assert ask.get("ask"), ask  # no ride type said: Hail asks
+    out = post({"type": "user_message", "text": args.category.replace("_", " ").title(),
+                "ride_category": args.category, "location": here})
     apps = []
     while out["type"] == "action_request":
         a = out["action"]
@@ -53,8 +57,7 @@ def main() -> None:
                     "observations": fake_phone.observations(a["app"], a["ride_types"])})
     assert out["type"] == "recommendation", out
     rec = out
-    # The user taps Ola Auto (not the highlighted one) to show free choice.
-    pick = next(o for o in rec["options"] if (o["app"], o["ride_type"]) == ("ola", "auto"))
+    pick = next(o for o in rec["options"] if o["option_id"] == rec["recommended_option_id"])
     handoff = post({"type": "confirmation", "option_id": pick["option_id"],
                     "token": rec["confirmation"]["token"], "accept": True})
     done = post({"type": "tool_result", "action_id": handoff["action_id"], "status": "ok",
@@ -62,7 +65,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     rec["confirmation"]["token"] = "screenshot-fixture-token"  # never ship a real token
     (OUT / "conversation.json").write_text(json.dumps({
-        "said": args.text, "apps_checked": apps, "recommendation": rec,
+        "said": args.text, "ask": ask, "category": args.category, "apps_checked": apps,
+        "recommendation": rec,
         "picked_option_id": pick["option_id"], "done": done,
     }, ensure_ascii=False, indent=1))
     print(f"wrote {OUT / 'conversation.json'}: {len(rec['options'])} options; "

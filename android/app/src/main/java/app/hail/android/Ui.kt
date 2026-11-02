@@ -19,7 +19,7 @@ fun Context.text(s: CharSequence, size: Float = 16f): TextView = TextView(this).
     setTextIsSelectable(true)
 }
 
-fun Context.button(label: String, onClick: (View) -> Unit): Button =
+fun Context.button(label: CharSequence, onClick: (View) -> Unit): Button =
     Button(this).apply { text = label; setOnClickListener(onClick) }
 
 fun Context.column(): LinearLayout = LinearLayout(this).apply {

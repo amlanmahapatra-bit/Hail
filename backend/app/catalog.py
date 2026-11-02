@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from app.protocol import App, RideType
+from app.protocol import App, FareObservation, RideCategory, RideType
 
 CONFIG_PATH = Path(__file__).parent / "readers_config.json"
 
@@ -46,6 +46,37 @@ def products() -> dict[tuple[App, str], Product]:
             )
             out[(app, prod.key)] = prod
     return out
+
+
+# Which catalog classes belong to each category the user chooses from.
+CATEGORY_CLASSES: dict[RideCategory, set[str]] = {
+    RideCategory.AUTO: {"auto", "auto_priority"},
+    RideCategory.BIKE: {"bike"},
+    RideCategory.CAB: {
+        "cab_non_ac",
+        "cab_ac",
+        "cab_priority",
+        "cab_premium",
+        "cab_luxury",
+        "cab_luggage",
+    },
+    RideCategory.CAB_XL: {"cab_xl"},
+}
+RIDE_TYPES_FOR: dict[RideCategory, list[RideType]] = {
+    RideCategory.AUTO: [RideType.AUTO],
+    RideCategory.BIKE: [RideType.BIKE],
+    RideCategory.CAB: [RideType.CAB],
+    RideCategory.CAB_XL: [RideType.CAB],
+}
+
+
+def category_of(ob: FareObservation) -> RideCategory:
+    p = lookup(ob.app, ob.product)
+    if p and p.comparable_class:
+        for cat, classes in CATEGORY_CLASSES.items():
+            if p.comparable_class in classes:
+                return cat
+    return RideCategory(ob.ride_type.value)  # no catalog product: cab/auto/bike as is
 
 
 def lookup(app: App, key: str | None) -> Product | None:

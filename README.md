@@ -25,7 +25,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "50 passed"
+uv run pytest -q             # expect: "60 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -34,10 +34,11 @@ uv run pytest -q             # expect: "50 passed"
 cd backend
 uv run python ../tools/fake_phone.py                    # offline rule-based agent, no key needed
 uv run python ../tools/fake_phone.py --llm openrouter   # real Gemini via OpenRouter
+uv run python ../tools/fake_phone.py --category auto     # answer "Which ride?" with auto
 ```
 Expected final lines:
 ```
-FINAL: Opened Ola with your trip. Pick bike and tap Book there. You save ₹4.
+FINAL: Opened Uber with your trip. Pick Premier AC and tap Book there. You save ₹67.
 PASS: 3 fare checks -> options card -> forged tap refused -> user's pick opened
 ```
 The fares are real prices transcribed from the founder's recordings (Bangalore, 2 Nov 2026),
@@ -101,6 +102,11 @@ The APK lands in `android/app/build/outputs/apk/debug/`.
      screen, then log back in)
 5. Share the files (Files app → Downloads → Hail). Dumps contain whatever was on screen
    (your name, saved places), so check them before sharing and delete them afterwards.
+
+### Ride types
+Pick **Auto / Bike / Cab / Cab XL** in the chat's **Ride type** dropdown, or say it ("rickshaw", "big
+cab"). If you don't, Hail asks with four buttons. You only see that type's rides, best first, with
+when the prices were read ("Live prices from the apps · checked 12:16 PM").
 
 ### Voice
 Tap 🎤 in the chat (or long-press the Hail icon → **Speak to Hail**) and say e.g. "Koramangala,

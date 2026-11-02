@@ -183,8 +183,14 @@ class FakeLLM:
         return LLMTurn(message=msg, tool_calls=parse_tool_calls(msg))
 
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> LLMTurn:
-        last_user = max(i for i, m in enumerate(messages) if m["role"] == "user")
-        req = parse_request(messages[last_user]["content"])
+        users = [i for i, m in enumerate(messages) if m["role"] == "user"]
+        last_user = users[-1]
+        # The trip may have been said a message earlier ("to Koramangala", then "auto").
+        req = None
+        for i in reversed(users):
+            req = parse_request(messages[i]["content"])
+            if req:
+                break
         if req is None:
             return self._turn("Where should I pick you up, and where are you going?", [])
         names: dict[str, str] = {}
@@ -214,8 +220,11 @@ class FakeLLM:
                 "pickup_id": geos[0]["place_id"],
                 "drop_id": geos[1]["place_id"],
             }
-            if req["ride_type"]:
-                args["ride_types"] = [req["ride_type"]]
+            from app.categories import detect
+
+            cat = detect(messages[last_user]["content"])
+            if cat:
+                args["ride_category"] = cat.value
             return self._turn(None, [self._call("request_fare_check", args)])
         if "rank_options" not in results:
             return self._turn(
@@ -225,7 +234,7 @@ class FakeLLM:
                         "rank_options",
                         {
                             k: req[k]
-                            for k in ("preference", "ride_type", "luggage", "late_night")
+                            for k in ("preference", "luggage", "late_night")
                             if req[k] is not None
                         },
                     )

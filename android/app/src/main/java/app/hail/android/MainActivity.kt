@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.view.View
 import org.json.JSONObject
 
 /** The bare chat screen. */
@@ -40,6 +41,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
         top.addView(button("Apps") { startActivity(Intent(this, AppsActivity::class.java)) })
         top.addView(button("Debug") { startActivity(Intent(this, DebugActivity::class.java)) })
         root.addView(top)
+        root.addView(rideDropdown())
         banner = text("", 14f).apply {
             setOnClickListener { startActivity(Intent(this@MainActivity, ConsentActivity::class.java)) }
         }
@@ -167,6 +169,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
 
     companion object {
         const val ACTION_VOICE = "app.hail.VOICE"
+        private const val TOP_ROWS = 4
         private const val REQ_MIC = 7
     }
 
@@ -196,12 +199,69 @@ class MainActivity : Activity(), AgentRunner.Listener {
         sendText(t, spoken = false)
     }
 
-    private fun sendText(t: String, spoken: Boolean) {
+    private fun sendText(t: String, spoken: Boolean, category: String? = null) {
         say(if (spoken) "You (voice): $t" else "You: $t")
         busy = true
         val apps = if (prefs.simulateFares) RideApps.packages.keys.toList()
         else AppsActivity.connected(this, prefs)
-        runner.sendText(t, apps, this, spoken)
+        // A ride type in the words ("rickshaw", "big cab") wins; else the dropdown; else Hail asks.
+        val cat = category ?: RideCategory.detect(t)?.key ?: prefs.rideCategory
+        runner.sendText(t, apps, this, spoken, cat)
+    }
+
+    // ------------------------------------------------------------------ ride type
+
+    /** "Ride type: Any / Auto / Bike / Cab / Cab XL". Any = Hail asks for each trip. */
+    private fun rideDropdown(): View {
+        val r = row().apply { setPadding(dp(4), 0, dp(4), 0); gravity = android.view.Gravity.CENTER_VERTICAL }
+        r.addView(text("Ride type", 15f))
+        val labels = listOf("Any (ask me)") + RideCategory.entries.map { it.label }
+        val spinner = android.widget.Spinner(this)
+        spinner.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        spinner.setSelection(RideCategory.entries.indexOfFirst { it.key == prefs.rideCategory } + 1)
+        spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                prefs.rideCategory = if (pos == 0) null else RideCategory.entries[pos - 1].key
+            }
+            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        }
+        r.addView(spinner, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        return r
+    }
+
+    /** "Which ride would you like?" with one button per type; voice answers work too. */
+    private fun showAsk(out: JSONObject) {
+        val q = out.optString("text")
+        say("Hail: $q")
+        val choices = out.getJSONObject("ask").getJSONArray("choices")
+        val cats = (0 until choices.length()).mapNotNull { RideCategory.of(choices.getString(it)) }
+        val bar = row().apply { setPadding(0, dp(4), 0, dp(8)) }
+        val buttons = mutableListOf<android.widget.Button>()
+        cats.forEach { c ->
+            buttons += button(c.label) {
+                buttons.forEach { it.isEnabled = false }
+                voice.stopListening(); voice.stopSpeaking()
+                sendText(c.label, spoken = false, category = c.key)
+            }.also { bar.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)) }
+        }
+        log.addView(bar)
+        scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+        if (!voiceMode) return
+        fun listenForType(tries: Int) {
+            val live = text("🎤 Auto, bike, cab or cab XL?")
+            log.addView(live)
+            voice.listen(onPartial = { live.text = "🎤 $it" }, onResult = { heard ->
+                log.removeView(live)
+                val c = heard?.let { RideCategory.detect(it) }
+                when {
+                    !buttons.first().isEnabled -> Unit // already tapped
+                    c != null -> { buttons.forEach { it.isEnabled = false }; sendText(heard, spoken = true, category = c.key) }
+                    tries < 2 -> voice.speak("Sorry, say auto, bike, cab or cab XL.") { listenForType(tries + 1) }
+                    else -> say("Tap the ride type you want.")
+                }
+            })
+        }
+        voice.speak(q) { listenForType(0) }
     }
 
     private fun say(s: String) {
@@ -226,7 +286,7 @@ class MainActivity : Activity(), AgentRunner.Listener {
     override fun onResponse(out: JSONObject) {
         busy = false
         when (out.optString("type")) {
-            "assistant_message" -> {
+            "assistant_message" -> if (out.optJSONObject("ask") != null) showAsk(out) else {
                 say("Hail: ${out.optString("text")}")
                 if (voiceMode) voice.speak(out.optString("text"))
             }
@@ -239,22 +299,29 @@ class MainActivity : Activity(), AgentRunner.Listener {
         }
     }
 
-    /** Every option as a tappable row, best first; the recommended one is starred. */
+    /**
+     * The options for the chosen ride type, best first. Shows the top few with "Show more", a
+     * header with the ride type, and whether prices are live and when they were read.
+     */
     private fun showRecommendation(out: JSONObject) {
         val best = out.getString("recommended_option_id")
         val token = out.getJSONObject("confirmation").getString("token")
-        val card = column().apply { setBackgroundColor(0x1A2196F3) }
-        card.addView(text("Hail: ${out.optString("text")}"))
-        card.addView(text("Tap a ride to open it. You book it in that app.", 13f))
-
         val opts = out.getJSONArray("options")
+        val card = column().apply { setBackgroundColor(0x142196F3) }
+
+        val cat = RideCategory.of(out.optString("ride_category"))?.label ?: "Rides"
+        card.addView(text("$cat · ${opts.length()} option${if (opts.length() == 1) "" else "s"}", 18f))
+        card.addView(text(pricesLine(out), 13f).apply {
+            setTextColor(if (out.optBoolean("live", true)) 0xFF2E7D32.toInt() else 0xFFB26A00.toInt())
+        })
+        card.addView(text(out.optString("text"), 15f))
+
         val buttons = mutableListOf<android.widget.Button>()
+        val hidden = mutableListOf<View>()
         for (i in 0 until opts.length()) {
             val o = opts.getJSONObject(i)
             val id = o.getString("option_id")
-            val star = if (id == best) "★ " else ""
-            val saves = if (o.isNull("saves")) "" else "  ·  save ₹${o.getInt("saves")}"
-            buttons += button("$star${fmt(o)}$saves") {
+            val b = button(rowText(o, id == best)) {
                 buttons.forEach { it.isEnabled = false }
                 voice.stopListening(); voice.stopSpeaking()
                 busy = true
@@ -263,14 +330,24 @@ class MainActivity : Activity(), AgentRunner.Listener {
                 isAllCaps = false
                 gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
             }
+            buttons += b
+            card.addView(b)
+            if (i >= TOP_ROWS) { b.visibility = View.GONE; hidden += b }
         }
-        buttons += button("None of these") {
+        if (hidden.isNotEmpty()) {
+            card.addView(button("Show ${hidden.size} more") { v ->
+                hidden.forEach { it.visibility = View.VISIBLE }
+                v.visibility = View.GONE
+            }.apply { isAllCaps = false })
+        }
+        val none = button("None of these") {
             buttons.forEach { it.isEnabled = false }
             voice.stopListening(); voice.stopSpeaking()
             busy = true
             runner.confirm(best, token, false, this)
-        }
-        buttons.forEach { card.addView(it) }
+        }.apply { isAllCaps = false; alpha = 0.7f }
+        buttons += none
+        card.addView(none)
         log.addView(card)
         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
         if (voiceMode) speakOptionsAndListen(out) { id, accept ->
@@ -280,6 +357,53 @@ class MainActivity : Activity(), AgentRunner.Listener {
                 runner.confirm(id, token, accept, this, via = "voice")
             }
         }
+    }
+
+    /** "★ Ola Auto  ₹46" on top, "1 min away · save ₹3" below. */
+    private fun rowText(o: JSONObject, best: Boolean): CharSequence {
+        val star = if (best) "★ " else ""
+        val first = "$star${fmtName(o)}   ${fmtFare(o)}"
+        val bits = mutableListOf<String>()
+        if (!o.isNull("eta_minutes")) bits += "${o.getInt("eta_minutes")} min away"
+        if (o.optBoolean("surge_flag")) bits += "surge"
+        if (!o.isNull("saves")) bits += "save ₹${o.getInt("saves")}"
+        val sb = android.text.SpannableStringBuilder(first)
+        sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, first.length, 0)
+        if (bits.isNotEmpty()) {
+            val start = sb.length
+            sb.append("\n").append(bits.joinToString(" · "))
+            sb.setSpan(android.text.style.RelativeSizeSpan(0.85f), start, sb.length, 0)
+        }
+        return sb
+    }
+
+    private fun pricesLine(out: JSONObject): String {
+        val at = out.optString("prices_checked_at").takeIf { it.isNotEmpty() && it != "null" }
+        val time = at?.let {
+            runCatching {
+                java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH))
+            }.getOrNull()
+        }
+        val live = out.optBoolean("live", true)
+        return when {
+            !live -> "Test prices, not live" + (time?.let { " · $it" } ?: "")
+            time != null -> "Live prices from the apps · checked $time"
+            else -> "Live prices from the apps"
+        }
+    }
+
+    private fun fmtName(o: JSONObject): String {
+        val app = o.getString("app").replaceFirstChar { it.uppercase() }
+        val product = o.optString("product_name").takeIf { it.isNotEmpty() && it != "null" } ?: o.getString("ride_type")
+        return if (product.startsWith(app, ignoreCase = true)) product else "$app $product"
+    }
+
+    private fun fmtFare(o: JSONObject): String {
+        val lo = o.getDouble("fare_min")
+        val hi = o.getDouble("fare_max")
+        fun rs(v: Double) = if (v % 1.0 == 0.0) "₹${v.toInt()}" else "₹" + String.format(java.util.Locale.US, "%.2f", v)
+        return if (lo == hi) rs(lo) else "${rs(lo)}–${rs(hi)}"
     }
 
     private fun fmt(o: JSONObject): String {

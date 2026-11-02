@@ -8,20 +8,22 @@ coordinates (place_ids only).
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
 from app import gate
-from app.catalog import lookup
+from app.catalog import RIDE_TYPES_FOR, category_of, lookup
+from app.categories import detect
 from app.config import Settings
 from app.geocode import city_of, geocode
 from app.llm import LLMClient, LLMError, ToolCall
 from app.protocol import (
     ActionRequest,
     App,
+    Ask,
     AssistantMessage,
     Capabilities,
     CheckFaresAction,
@@ -32,7 +34,7 @@ from app.protocol import (
     Outbound,
     Place,
     Recommendation,
-    RideType,
+    RideCategory,
     ToolResult,
     UserMessage,
 )
@@ -51,6 +53,10 @@ def is_late_night(now: datetime) -> bool:
 
 class ToolError(Exception):
     pass
+
+
+class AskCategory(Exception):
+    """request_fare_check without a ride category: Hail asks the user (no model call)."""
 
 
 @dataclass
@@ -104,6 +110,10 @@ class Agent:
         if msg.available_apps is not None:
             s.available_apps = list(dict.fromkeys(msg.available_apps))
         s.voice = msg.input_mode == "voice"
+        cat = msg.ride_category or detect(msg.text)
+        if cat is not None:
+            s.ride_category = cat
+            s.category_for_drop = None  # applies to the trip being asked about now
         s.messages.append({"role": "user", "content": msg.text})
         return self._run(ctx)
 
@@ -125,7 +135,13 @@ class Agent:
             for ob in msg.observations:
                 # Only accept what was asked for: the app we opened and the ride types we
                 # asked about. Anything else is discarded, never passed on.
-                if ob.app == pa.app and ob.ride_type in pa.ride_types and _catalog_ok(ob):
+                if (
+                    ob.app == pa.app
+                    and ob.ride_type in pa.ride_types
+                    and _catalog_ok(ob)
+                    and (batch.category is None or category_of(ob) == batch.category)
+                    and self._fresh(ob, ctx.now)
+                ):
                     kept.append(ob)
                     oid = f"opt_{len(s.options) + 1}"
                     s.options[oid] = Option(option_id=oid, round=s.round, observation=ob)
@@ -172,9 +188,9 @@ class Agent:
             s.status = Status.DONE
             s.chosen_option_id = option.option_id
             sv = savings(option, list(s.options.values()))
-            text = (
-                f"Opened {app_name} with your trip. Pick {ob.ride_type.value} and tap Book there."
-            )
+            product = lookup(ob.app, ob.product)
+            ride = product.name if product else ob.ride_type.value
+            text = f"Opened {app_name} with your trip. Pick {ride} and tap Book there."
             if sv:
                 text += f" You save ₹{sv.amount}."
             s.messages.append({"role": "assistant", "content": text})
@@ -214,7 +230,25 @@ class Agent:
                     if call.name not in allowed:
                         raise ToolError(f"unknown tool {call.name!r}")
                     if call.name == "request_fare_check":
-                        terminal = self._start_fare_check(ctx, call)
+                        try:
+                            terminal = self._start_fare_check(ctx, call)
+                        except AskCategory:
+                            # Ask in code: no extra model call, and fewer prices to read later.
+                            ctx.tool_reply(
+                                call,
+                                {
+                                    "status": "Hail asked the user which ride type; "
+                                    "their answer is the next message"
+                                },
+                            )
+                            text = "Which ride would you like: auto, bike, cab or cab XL?"
+                            s.messages.append({"role": "assistant", "content": text})
+                            s.status = Status.IDLE
+                            terminal = AssistantMessage(
+                                session_id=ctx.session_id,
+                                text=text,
+                                ask=Ask(choices=list(RideCategory)),
+                            )
                     elif call.name == "present_options":
                         terminal = self._present_options(ctx, call)
                     else:
@@ -270,11 +304,7 @@ class Agent:
             ranked = rank(options, req)
             s.ranked_option_ids = [r.option.option_id for r in ranked if r.excluded_reason is None]
             return {
-                "ranked": [
-                    _option_json(r.option) | {"score": r.score}
-                    for r in ranked
-                    if r.excluded_reason is None
-                ],
+                "ranked": [_option_json(r.option) for r in ranked if r.excluded_reason is None],
                 "excluded": [
                     {"option_id": r.option.option_id, "reason": r.excluded_reason}
                     for r in ranked
@@ -287,6 +317,12 @@ class Agent:
             return {"available": False, "reason": "ONDC is not live yet; use the ride apps."}
 
         raise ToolError(f"unknown tool {call.name!r}")
+
+    def _fresh(self, ob: FareObservation, now: datetime) -> bool:
+        """Only live readings: not older than max_price_age_seconds, not from the future."""
+        at = ob.captured_at if ob.captured_at.tzinfo else ob.captured_at.replace(tzinfo=UTC)
+        age = (now - at).total_seconds()
+        return -60 <= age <= self.settings.max_price_age_seconds
 
     def _start_fare_check(self, ctx: "_Ctx", call: ToolCall) -> Outbound | None:
         s, a = ctx.state, call.arguments
@@ -302,7 +338,18 @@ class Agent:
             apps = [x for x in apps if x in s.available_apps]
         if not apps:
             raise ToolError("none of those apps are connected on this phone; tell the user")
-        ride_types = [RideType(x) for x in (a.get("ride_types") or [x.value for x in RideType])]
+        drop_label = s.places[drop_id].place.label
+        cat = RideCategory(a["ride_category"]) if a.get("ride_category") else None
+        if (
+            cat is None
+            and s.ride_category is not None
+            and s.category_for_drop in (None, drop_label)
+        ):
+            cat = s.ride_category  # chosen for this trip (or just now)
+        if cat is None:
+            raise AskCategory()
+        s.ride_category, s.category_for_drop = cat, drop_label
+        ride_types = RIDE_TYPES_FOR[cat]
         s.round += 1
         s.trip = (pickup_id, drop_id)
         s.batch = FareCheckBatch(
@@ -311,6 +358,7 @@ class Agent:
             drop_id=drop_id,
             ride_types=list(dict.fromkeys(ride_types)),
             queue=list(dict.fromkeys(apps)),
+            category=cat,
         )
         return self._next_fare_action(ctx)
 
@@ -337,6 +385,7 @@ class Agent:
                     pickup=s.places[b.pickup_id].place,
                     drop=s.places[b.drop_id].place,
                     ride_types=b.ride_types,
+                    ride_category=b.category,
                     pickup_is_current_location=s.places[b.pickup_id].is_device_location,
                 ),
             )
@@ -395,6 +444,9 @@ class Agent:
                 for i in order
             ],
             confirmation=prompt,
+            ride_category=s.ride_category,
+            prices_checked_at=min(current[i].observation.captured_at for i in order),
+            live=all(_is_live(current[i].observation) for i in order),
         )
 
 
@@ -429,19 +481,27 @@ def _catalog_ok(ob: FareObservation) -> bool:
     return p is not None and p.exclude is None and p.ride_type == ob.ride_type
 
 
+def _is_live(ob: FareObservation) -> bool:
+    """Debug "simulate" and recorded test fares are labelled as not live."""
+    sig = ob.screen_signature
+    return not (sig.startswith("simulated") or ".recorded." in sig)
+
+
 def _option_json(o: Option) -> dict[str, Any]:
+    """Compact on purpose: this is what the model reads (fewer tokens per option)."""
     ob = o.observation
     p = lookup(ob.app, ob.product)
-    return {
+    d: dict[str, Any] = {
         "option_id": o.option_id,
         "app": ob.app.value,
-        "product": p.name if p else None,
-        "ride_type": ob.ride_type.value,
-        "fare_min": ob.fare_min,
-        "fare_max": ob.fare_max,
-        "eta_minutes": ob.eta_minutes,
-        "surge": ob.surge_flag,
+        "product": p.name if p else ob.ride_type.value,
     }
+    d["fare"] = ob.fare_min if ob.fare_min == ob.fare_max else [ob.fare_min, ob.fare_max]
+    if ob.eta_minutes is not None:
+        d["eta_min"] = ob.eta_minutes
+    if ob.surge_flag:
+        d["surge"] = True
+    return d
 
 
 def _short(e: Exception) -> str:

@@ -71,6 +71,8 @@ def main() -> int:
     ap.add_argument("--llm", choices=["fake", "openrouter"], default="fake",
                     help="In-process only. 'openrouter' needs OPENROUTER_API_KEY in .env.")
     ap.add_argument("--pick", help="option_id to tap instead of the highlighted one")
+    ap.add_argument("--category", default="cab", choices=["auto", "bike", "cab", "cab_xl"],
+                    help="ride type to answer when Hail asks (default: cab)")
     args = ap.parse_args()
 
     http = make_transport(args)
@@ -93,6 +95,9 @@ def main() -> int:
 
     checked: list[str] = []
     out = send({"type": "user_message", "text": args.text})
+    if out.get("ask"):  # "Which ride would you like?" -> tap a category button
+        out = send({"type": "user_message", "text": args.category.replace("_", " "),
+                    "ride_category": args.category})
     while out["type"] == "action_request":
         a = out["action"]
         checked.append(a["app"])

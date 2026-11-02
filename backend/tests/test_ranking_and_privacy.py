@@ -62,7 +62,7 @@ def test_rate_limit(make_client, clock):
     from tests.conftest import Phone
 
     phone = Phone(make_client(fare_checks_per_hour=2), clock)
-    _, apps = phone.answer_fare_checks(phone.say("Powai to Andheri station"))
+    _, apps = phone.answer_fare_checks(phone.say("Powai to Andheri station", category="auto"))
     assert len(apps) == 2
 
 
@@ -72,7 +72,7 @@ def test_auth_required(client):
 
 
 def test_delete_my_data(phone, client):
-    phone.answer_fare_checks(phone.say("Powai to Andheri station"))
+    phone.answer_fare_checks(phone.say("Powai to Andheri station", category="auto"))
     store = client.app.state.store
     r = client.delete("/v1/me", headers={"Authorization": f"Bearer {phone.token}"})
     assert r.status_code == 204
@@ -88,7 +88,7 @@ def test_delete_my_data(phone, client):
 
 
 def test_observation_storage_has_no_location_or_text(phone, client):
-    phone.answer_fare_checks(phone.say("Powai to Andheri station"))
+    phone.answer_fare_checks(phone.say("Powai to Andheri station", category="auto"))
     from sqlalchemy import inspect
 
     cols = {

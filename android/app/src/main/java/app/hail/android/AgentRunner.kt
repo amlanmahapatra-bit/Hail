@@ -33,9 +33,10 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
     }
 
     /** [apps]: ride apps connected on this phone (installed + switched on). */
-    fun sendText(text: String, apps: List<String>, l: Listener, spoken: Boolean = false) = run(
+    fun sendText(text: String, apps: List<String>, l: Listener, spoken: Boolean = false, category: String? = null) = run(
         JSONObject().put("type", "user_message").put("text", text)
             .put("input_mode", if (spoken) "voice" else "text")
+            .apply { if (category != null) put("ride_category", category) }
             .put("available_apps", org.json.JSONArray(apps))
             .apply { Here.now(ctx)?.let { put("location", it) } }, l
     )

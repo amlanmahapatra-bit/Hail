@@ -27,6 +27,11 @@ class Prefs(context: Context) {
         get() = sp.getStringSet("enabled_apps", null) ?: RideApps.packages.keys
         set(v) = sp.edit().putStringSet("enabled_apps", v).apply()
 
+    /** Ride-type dropdown: null = "Any" (Hail asks per trip). */
+    var rideCategory: String?
+        get() = sp.getString("ride_category", null)
+        set(v) = sp.edit().putString("ride_category", v).apply()
+
     var appsSetupDone: Boolean
         get() = sp.getBoolean("apps_setup_done", false)
         set(v) = sp.edit().putBoolean("apps_setup_done", v).apply()

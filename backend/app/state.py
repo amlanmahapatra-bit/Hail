@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.protocol import App, FareObservation, Place, RideType
+from app.protocol import App, FareObservation, Place, RideCategory, RideType
 
 
 class Status(StrEnum):
@@ -46,6 +46,7 @@ class FareCheckBatch(BaseModel):
     drop_id: str
     ride_types: list[RideType]
     queue: list[App]  # apps not yet sent to the phone
+    category: RideCategory | None = None
     results: dict[str, str] = Field(default_factory=dict)  # app -> status
 
 
@@ -75,6 +76,8 @@ class SessionState(BaseModel):
     ranked_option_ids: list[str] = Field(default_factory=list)  # last rank_options order
     action_seq: int = 0
     voice: bool = False  # last user message was spoken
+    ride_category: RideCategory | None = None  # what the user chose (dropdown, words, button)
+    category_for_drop: str | None = None  # the destination that choice was used for
 
     def next_action_id(self) -> str:
         self.action_seq += 1

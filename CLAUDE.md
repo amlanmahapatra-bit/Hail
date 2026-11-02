@@ -55,7 +55,9 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
    Book/Confirm/Request/Choose/Pay/Cancel/Change (`Navigator.NEVER_TAP`, enforced twice).
 6. Secrets only in `.env`. Never in code, logs or commits. Logs carry no message text,
    coordinates or tokens.
-7. Fare checks run only for a live user request, and are rate-limited per device.
+7. Fare checks run only for a live user request, and are rate-limited per device. Only live
+   prices: readings older than 3 minutes are rejected, and test/recorded fares are always labelled
+   not live.
 
 ## Working agreement
 - Small, testable steps. Run `uv run ruff check . && uv run pytest -q` (in `backend/`) and

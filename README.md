@@ -25,7 +25,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "43 passed"
+uv run pytest -q             # expect: "46 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -77,7 +77,17 @@ The APK lands in `android/app/build/outputs/apk/debug/`.
 3. Allow notifications (needed for the Stop button).
 4. **Debug** → set **Backend URL** to your tunnel URL (see "Run the server"), then **Save URL**.
 
-### Collect screen dumps from Uber, Ola and Rapido (what we need first)
+### Test fare reading on the phone (5 minutes, no server needed)
+1. Debug → **Test fare check** → type a destination near you (e.g. "Forum Mall Koramangala").
+2. Tap **Uber**. Hail opens Uber, taps "Where to?", types the destination, picks the matching
+   suggestion and reads the fare list. You'll see the screens change; don't touch the phone.
+   Tap **Stop** in the notification at any time.
+3. Back in Hail's Debug screen you see what it read ("Uber Go AC: ₹118.75 · 6 min") and every step
+   it took. Repeat for **Ola** and **Rapido**.
+4. If an app fails, send me the "Steps" text and a dump of the screen where it stopped (next
+   section). Hail never books: it never taps Book, Confirm, Request, Choose, Pay or Cancel.
+
+### Collect screen dumps from Uber, Ola and Rapido (when a test fails)
 1. Debug → **Start dump mode**. A "Hail dump mode" notification appears.
 2. Open the ride app and enter a trip (e.g. Powai → Andheri station) until the fare list shows.
 3. Pull down notifications → **Dump screen**. The notification says

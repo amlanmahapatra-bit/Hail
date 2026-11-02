@@ -55,11 +55,27 @@ Product insights:
 - **Discounts are already applied in the shown price** (Ola WELCOME coupon, Uber "5% promo"). Hail
   compares what the user would actually pay *now*, which can depend on the user's own coupons.
 
+## Reaching the fare list (Navigator.kt)
+
+1. Try the deep link if the app has one (Uber; Ola from its public docs) and we have coordinates.
+   If the fare list shows within 8 s, read it.
+2. Otherwise open the app fresh and repeat, one step at a time, based on what's on screen:
+   - logged out → stop with `not_logged_in`; ride in progress → stop (never touch it)
+   - search screen → type the pickup (only if not the current location and there are two fields),
+     then the destination, then tap the suggestion whose words match (at least 2/3 of the query)
+   - home screen → tap a recent destination that matches exactly, else the search bar
+     (texts from the recordings), else dismiss an allow-listed popup
+   - never tap Book/Confirm/Request/Choose/Pay/Cancel/Change; give up after 24 steps or 3 repeats
+3. Taps go to the node or its clickable parent, else a gesture at its centre. Typing uses set-text,
+   else paste (clipboard cleared after).
+
 ## Still unknown (needs an Android phone)
 
 - Whether the Android apps expose these texts as separate nodes or merged descriptions (the reader
   handles both), and whether "₹" appears as "₹", "Rs" or "Rupees" (the pattern accepts ₹, Rs and INR).
 - Whether scrolling works the same way on each list (`ACTION_SCROLL_FORWARD` on the largest scrollable).
 - Ola's logged-out screen, and any popups (none appeared in these recordings).
-- Ola and Rapido deep links. Without them, those apps open on their home screen, and the reader finds no
-  fare list.
+- Whether Ola's documented deep link works without an Ola-issued `utm_source` token. Navigation covers
+  it if not.
+- The Uber and Rapido destination-search screens (the recordings tapped recents instead). The navigator
+  handles them generically (editable fields + matching suggestion), and a dump confirms it.

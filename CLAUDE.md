@@ -46,10 +46,11 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
 4. **Never handle ride-app credentials.** The customer logs in once inside each official app,
    and Hail uses those logged-in apps. "Connected apps" means installed plus switched on; it
    never means a stored login, token or OTP.
-5. **Never fabricate** selectors, deep-link formats or API details. Reader rules come only from
-   real screens: the founder's recordings (current drafts, see docs/readers.md) and Android
-   accessibility dumps (which verify them). Uber's link is from its public docs; Ola and Rapido links
-   come from the founder.
+5. **Never fabricate** selectors, deep-link formats or API details. Reader and navigation rules come
+   only from real screens: the founder's recordings (current drafts, see docs/readers.md) and
+   Android accessibility dumps (which verify them). Deep links only from official public docs
+   (Uber, Ola); otherwise Hail navigates (search bar → destination → suggestion). Hail never taps
+   Book/Confirm/Request/Choose/Pay/Cancel/Change (`Navigator.NEVER_TAP`, enforced twice).
 6. Secrets only in `.env`. Never in code, logs or commits. Logs carry no message text,
    coordinates or tokens.
 7. Fare checks run only for a live user request, and are rate-limited per device.
@@ -72,5 +73,6 @@ docs/          protocol.md, decisions.md
 android/       Kotlin client, no third-party libs: MainActivity (chat) · ConsentActivity · AppsActivity ·
                DebugActivity (dumper, backend URL, delete data) · HailAccessibilityService ·
                AgentService (FGS + Stop) · AgentRunner (session loop) · RideApps (deep links) ·
-               FareReader + ReaderConfigs (fare parsing, JVM unit tests)
+               FareReader + ReaderConfigs (fare parsing) · Navigator (reach the fare list) ·
+               Here (location on request); JVM unit tests in app/src/test
 ```

@@ -105,6 +105,12 @@ option.
  "done": true}
 ```
 
+#### Places
+`{"lat": 19.1176, "lng": 72.906, "label": "Powai"}`. `lat`/`lng` are `null` for a place known only
+by name: the phone finds it with the ride app's own search, and deep links are skipped.
+`pickup_is_current_location: true` (on CHECK_FARES and OPEN_APP) means the pickup is where the
+phone is, so the ride app's own GPS pickup is kept.
+
 #### `action_request`: CHECK_FARES
 ```json
 {"type": "action_request", "session_id": "…", "action_id": "act_1",

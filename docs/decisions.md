@@ -2,6 +2,28 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-02: Reach the fare list by navigating, not only by deep links
+- The prototype's deep links are lost. Rapido has no public format. Ola has an official one
+  (developers.olacabs.com/docs/deep-linking), but it requires an Ola-issued `utm_source` token we
+  don't have. So Hail **navigates like a person**: it opens the app fresh, taps the search bar
+  ("Where to?" / "Where are you going?" / "Where do you want to go?", from the recordings), types
+  the destination, and taps the suggestion whose words match. If the destination is in the home
+  screen's recents, it taps that directly.
+- Deep links are a shortcut: Uber (public docs) and Ola (public docs, placeholder `utm_source`) are
+  tried first. If the fare list isn't on screen within 8 s, Hail navigates instead.
+- **Safety:** the navigator and the executor both refuse to tap anything starting with Book,
+  Confirm, Request, Choose, Pay, Cancel or Change. Popups are dismissed only with a short allow-list.
+- When the user picks a ride, Hail navigates to that trip's fare list in the chosen app and stops.
+  The user taps Book.
+- **Pickup:** by default it is where the user is. The app sends its last known location only with
+  a live request, and the ride app keeps its own GPS pickup (`pickup_is_current_location`). A named
+  pickup is typed into the pickup field when the search screen has one; otherwise the fares are
+  marked low-confidence.
+- **Places Hail can't geocode are passed by name**, and each app's own search resolves them. Free,
+  and no extra data goes to a geocoder. Deep links are skipped for them, since they need coordinates.
+- Debug "Test fare check" runs one app's check on the phone with no backend, using the reader
+  config bundled into the APK.
+
 ## 2026-11-02: Readers drafted from the founder's screen recordings (iOS)
 - The recordings gave real screen text, layouts and flows for all three apps (see
   docs/readers.md). Readers are written from them and marked `draft_from_ios_recordings`. They are

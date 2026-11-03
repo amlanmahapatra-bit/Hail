@@ -131,8 +131,17 @@ prices", you tap it, then the same for Ola and Rapido, then pick a ride and Hail
 - Shared logic tests (Linux or Mac): `cd ios/HailCore && swift test` (expect "Executed 10 tests,
   with 0 failures")
 - The app builds on GitHub Actions (workflow **iOS**, macOS runner) for the iOS Simulator.
-- **To install on your iPhone** you need the Apple Developer Program ($99/year). Then we add a
-  TestFlight upload step, and you install Hail from the TestFlight app. No Mac needed.
+- **Install on your iPhone for free (no $99, no Mac):**
+  1. GitHub → **Actions** → latest **iOS** run → **Artifacts** → `hail-ios-unsigned-ipa` → unzip
+     → `Hail.ipa`.
+  2. Install it with a sideloading tool that signs with your **free Apple ID**: Sideloadly
+     (Windows/Mac, simplest for a first try) or SideStore/AltStore (SideStore can re-sign on the
+     phone). Follow that tool's official setup guide.
+  3. On the iPhone: Settings → General → VPN & Device Management → trust your Apple ID. On recent
+     iOS, also turn on Developer Mode when asked.
+  4. Free installs expire after **7 days**. Re-sign with the same tool (SideStore can do it on the
+     phone).
+- Later, with the Apple Developer Program ($99/year), the same app goes to TestFlight instead.
 
 ## UI screenshots (no phone needed)
 `docs/ui/` has the app's real screens, rendered from its code with Robolectric and fed a real

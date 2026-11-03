@@ -1,3 +1,5 @@
+# No App Groups or other paid-only capabilities: the app installs with a FREE Apple ID
+# (sideloaded) as well as through TestFlight later.
 # Xcode project, generated (no Mac needed to edit): `xcodegen generate` on the macOS build
 # machine (GitHub Actions) creates Hail.xcodeproj from this file.
 name: Hail
@@ -21,7 +23,6 @@ targets:
     platform: iOS
     sources:
       - Hail
-      - Shared
       - path: ../backend/app/readers_config.json
         buildPhase: resources
     dependencies:
@@ -31,10 +32,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hail.ios
         TARGETED_DEVICE_FAMILY: "1"
-    entitlements:
-      path: Hail/Hail.entitlements
-      properties:
-        com.apple.security.application-groups: [group.app.hail.ios]
     info:
       path: Hail/Info.plist
       properties:
@@ -55,7 +52,6 @@ targets:
     platform: iOS
     sources:
       - HailBroadcast
-      - Shared
       - path: ../backend/app/readers_config.json
         buildPhase: resources
     dependencies:
@@ -66,10 +62,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hail.ios.broadcast
         TARGETED_DEVICE_FAMILY: "1"
-    entitlements:
-      path: HailBroadcast/HailBroadcast.entitlements
-      properties:
-        com.apple.security.application-groups: [group.app.hail.ios]
     info:
       path: HailBroadcast/Info.plist
       properties:

@@ -1,6 +1,7 @@
 import Foundation
 import HailCore
 import SwiftUI
+import UIKit
 import UserNotifications
 
 /// One conversation with the backend. Same protocol as Android; the difference is how a fare
@@ -29,7 +30,6 @@ final class ChatModel: ObservableObject {
     /// A fare check waiting for the user to look at a ride app.
     struct PendingCheck {
         let actionId: String
-        let requestId: String
         let app: String
         let rideTypes: Set<String>
         var hint: String
@@ -50,6 +50,8 @@ final class ChatModel: ObservableObject {
     private var session = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     private var config: [String: Any]?
     private var voiceMode = false
+    /// Prices handed over by the screen reader (via notification), by app, until used.
+    private var handoffs: [String: FareHandoff] = [:]
 
     init() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -79,7 +81,7 @@ final class ChatModel: ObservableObject {
     func newSession() {
         session = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         pending = nil
-        Shared.write(Optional<Shared.CheckRequest>.none, to: Shared.requestFile)
+        handoffs = [:]
         items = [Item(kind: .hail("New request. Where to?"))]
     }
 
@@ -131,20 +133,17 @@ final class ChatModel: ObservableObject {
         let rideTypes = action["ride_types"] as? [String] ?? ["cab", "auto", "bike"]
         let name = RideApps.names[app] ?? app
         lastActionRaw = action
-        let req = Shared.CheckRequest(id: UUID().uuidString, app: app, rideTypes: rideTypes,
-                                      startedAt: Date(), expiresAt: Date().addingTimeInterval(180))
-        Shared.write(Optional<Shared.CheckResult>.none, to: Shared.resultFile)
-        Shared.write(req, to: Shared.requestFile)
-        pending = PendingCheck(actionId: actionId, requestId: req.id, app: app, rideTypes: Set(rideTypes),
-                               hint: "Checking \(name)…")
-        if !Shared.screenReadingIsOn() {
+        pending = PendingCheck(actionId: actionId, app: app, rideTypes: Set(rideTypes), hint: "Checking \(name)…")
+        // Already read just now (the user looked at this app first)? Use it.
+        if let h = handoffs[app], -h.capturedAt.timeIntervalSinceNow < 50 { await deliver(h); return }
+        if !Self.screenReadingIsOn {
             pending?.hint = "Turn on screen reading (button below), then tap Open \(name)."
             return
         }
         await openForCheck()
     }
 
-    /// Opens the pending app; the extension reads its fare list while the user looks at it.
+    /// Opens the pending app; the screen reader reads its fare list while the user looks at it.
     func openForCheck() async {
         guard let p = pending, let action = lastAction else { return }
         let r = await RideApps.open(app: p.app, pickup: action["pickup"] as? [String: Any] ?? [:],
@@ -153,32 +152,55 @@ final class ChatModel: ObservableObject {
         say(.step("\(RideApps.names[p.app] ?? p.app): \(r.hint)"))
     }
 
-    /// Called when Hail comes back to the front (notification tap or app switch).
+    /// Prices from the screen reader arrive in a notification (tapped, or still in the
+    /// notification centre when Hail comes back).
+    func receive(_ h: FareHandoff) async {
+        handoffs[h.app] = h
+        if pending?.app == h.app { await deliver(h) }
+    }
+
+    /// Called when Hail comes back to the front: collect any hand-offs still in the notification centre.
     func resume() async {
-        guard let p = pending, let result = Shared.read(Shared.CheckResult.self, from: Shared.resultFile),
-              result.requestId == p.requestId else { return }
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications()
+        var ids: [String] = []
+        for n in delivered {
+            if let h = FareHandoff.from(n.request.content.userInfo) {
+                ids.append(n.request.identifier)
+                if (handoffs[h.app]?.capturedAt ?? .distantPast) < h.capturedAt { handoffs[h.app] = h }
+            }
+        }
+        center.removeDeliveredNotifications(withIdentifiers: ids)
+        if let p = pending, let h = handoffs[p.app] { await deliver(h) }
+    }
+
+    private func deliver(_ h: FareHandoff) async {
+        guard let p = pending, p.app == h.app else { return }
         pending = nil
-        Shared.write(Optional<Shared.CheckRequest>.none, to: Shared.requestFile)
-        var body: [String: Any] = ["type": "tool_result", "action_id": p.actionId, "status": result.status]
-        if result.status == "ok" {
-            body["observations"] = Observations.json(app: p.app, fares: result.fares, capturedAt: result.capturedAt,
+        handoffs[h.app] = nil
+        var body: [String: Any] = ["type": "tool_result", "action_id": p.actionId, "status": h.status]
+        if h.status == "ok" {
+            body["observations"] = Observations.json(app: p.app, fares: h.fares, capturedAt: h.capturedAt,
                                                      confidence: 0.85, rideTypes: p.rideTypes)
         }
         await run(body)
+    }
+
+    static var screenReadingIsOn: Bool {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .contains { $0.traitCollection.sceneCaptureState == .active }
     }
 
     /// "Skip Rapido": not installed, logged out, or the user doesn't want it checked.
     func skipPending() async {
         guard let p = pending else { return }
         pending = nil
-        Shared.write(Optional<Shared.CheckRequest>.none, to: Shared.requestFile)
         await run(["type": "tool_result", "action_id": p.actionId, "status": "failed"])
     }
 
     func stop() async {
         guard let p = pending else { return }
         pending = nil
-        Shared.write(Optional<Shared.CheckRequest>.none, to: Shared.requestFile)
         await run(["type": "tool_result", "action_id": p.actionId, "status": "stopped_by_user"])
     }
 
@@ -287,7 +309,6 @@ final class ChatModel: ObservableObject {
 
     private func loadConfig() async {
         if let data = try? await api.readersConfig() {
-            try? data.write(to: Shared.dir.appendingPathComponent(Shared.configFile), options: .atomic)
             config = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         } else if let url = Bundle.main.url(forResource: "readers_config", withExtension: "json"),
                   let d = try? Data(contentsOf: url) {

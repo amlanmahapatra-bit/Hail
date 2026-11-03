@@ -88,7 +88,7 @@ struct ChatView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(p.hint).font(.footnote)
             HStack {
-                if !Shared.screenReadingIsOn() {
+                if !ChatModel.screenReadingIsOn {
                     BroadcastPicker().frame(width: 44, height: 44)
                     Text("Start screen reading").font(.footnote)
                 }
@@ -200,7 +200,7 @@ struct SettingsView: View {
             Form {
                 Section("Backend") { TextField("Backend URL", text: $backend).autocorrectionDisabled().textInputAutocapitalization(.never) }
                 Section("Screen reading") {
-                    Text("Hail reads prices from Uber, Ola and Rapido only while you check fares, using iPhone screen broadcast. Frames are read on your iPhone and dropped; only prices are kept. Stop it any time from the red indicator.")
+                    Text("Hail reads prices from Uber, Ola and Rapido while you check fares, using iPhone screen broadcast. Frames are read on your iPhone and dropped; only prices are kept. It stops itself after all three apps or 5 minutes, and you can stop it any time from the red indicator.")
                         .font(.footnote)
                     HStack { BroadcastPicker().frame(width: 44, height: 44); Text("Start / stop screen reading") }
                 }

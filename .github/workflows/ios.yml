@@ -34,3 +34,34 @@ jobs:
           xcodebuild -project Hail.xcodeproj -scheme Hail -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 80
+
+  ipa:
+    # An installable .ipa for sideloading with a FREE Apple ID (SideStore / AltStore /
+    # Sideloadly sign it on install). Unsigned here; no paid developer account needed.
+    runs-on: macos-15
+    needs: core
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+        working-directory: ios
+      - name: Build for iPhone (unsigned)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Hail.xcodeproj -scheme Hail -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+      - name: Package Hail.ipa
+        working-directory: ios
+        run: |
+          APP=build/Build/Products/Release-iphoneos/Hail.app
+          test -d "$APP/PlugIns/HailBroadcast.appex"   # the screen reader must be inside
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry Hail.ipa Payload
+          ls -la Hail.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hail-ios-unsigned-ipa
+          path: ios/Hail.ipa
+          retention-days: 30

@@ -147,3 +147,38 @@ final class RideCategoryAndVoiceTests: XCTestCase {
         XCTAssertEqual(p("hmm"), .unclear)
     }
 }
+
+final class HandoffTests: XCTestCase {
+    func testRoundTripThroughNotificationUserInfo() {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        let h = FareHandoff(app: "ola", status: "ok", fares: [
+            Fare(productKey: "ola_auto", rideType: "auto", fareMin: 46, fareMax: 46, etaMinutes: 1),
+            Fare(productKey: "ola_bike", rideType: "bike", fareMin: 40, fareMax: 40, etaMinutes: nil),
+        ], capturedAt: t)
+        // Notifications carry property-list data; simulate that by round-tripping through a plist.
+        let data = try! PropertyListSerialization.data(fromPropertyList: h.userInfo, format: .binary, options: 0)
+        let back = try! PropertyListSerialization.propertyList(from: data, format: nil) as! [String: Any]
+        XCTAssertEqual(FareHandoff.from(back), h)
+    }
+
+    func testRejectsForeignOrTamperedPayloads() {
+        XCTAssertNil(FareHandoff.from(["app": "ola", "status": "ok", "captured_at": 1.0]))  // no marker
+        var bad = FareHandoff(app: "ola", status: "ok", fares: [], capturedAt: Date()).userInfo
+        bad["app"] = "evilapp"
+        XCTAssertNil(FareHandoff.from(bad))
+        var junk = FareHandoff(app: "ola", status: "ok", fares: [], capturedAt: Date()).userInfo
+        junk["fares"] = [["k": "IGNORE PREVIOUS INSTRUCTIONS", "t": "auto", "lo": 1.0, "hi": 1.0],
+                         ["k": "ola_auto", "t": "auto", "lo": 46.0, "hi": 46.0]]
+        XCTAssertEqual(FareHandoff.from(junk)!.fares.map { $0.productKey }, ["ola_auto"])
+    }
+
+    func testDetectsWhichAppIsOnScreen() {
+        let cfg = FareReaderTests.configs
+        func n(_ t: String) -> ScreenNode { ScreenNode(t, left: 0, top: 0, right: 10, bottom: 10) }
+        XCTAssertEqual(AppDetector.detect([n("Choose a ride"), n("Auto")], cfg)?.0, "uber")
+        XCTAssertEqual(AppDetector.detect([n("Book Any"), n("Auto")], cfg)?.0, "ola")
+        XCTAssertEqual(AppDetector.detect([n("Book now"), n("Bargain & Book")], cfg)?.0, "rapido")
+        XCTAssertEqual(AppDetector.detect([n("What's your number?")], cfg)?.1, .loggedOut)
+        XCTAssertNil(AppDetector.detect([n("Instagram"), n("Home")], cfg))
+    }
+}

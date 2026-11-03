@@ -2,6 +2,24 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-03: iPhone without the $99 Apple Developer Program (free Apple ID sideloading)
+- **Founder constraint:** no budget for the Apple Developer Program. Apple lets anyone run their
+  own builds on their own iPhone with a free Apple ID. Without a Mac, tools such as SideStore,
+  AltStore or Sideloadly do that signing. Limits: apps expire after 7 days and must be re-signed
+  (SideStore can refresh on the phone), about 3 sideloaded apps at once, 10 App IDs per 7 days
+  (Hail uses 2: app + screen reader).
+- **Free Apple IDs can't use App Groups**, so the app and the screen reader no longer share files.
+  The prices ride inside the screen reader's local notification ("Got 6 Uber prices"), as catalog
+  keys + numbers, validated on arrival (`HailCore/FareHandoff`). Tapping it, or reopening Hail
+  (which collects delivered notifications), hands them over. The screen reader detects which app
+  is on screen itself (`AppDetector`). It stops itself after all three apps or 5 minutes.
+- CI builds an **unsigned .ipa** (`hail-ios-unsigned-ipa`) that the sideloading tool signs with the
+  user's free Apple ID. TestFlight (paid) stays possible later with no code change.
+- **Honest limits:** fine for the founder and a handful of testers. For a 50-person iPhone pilot,
+  making everyone sideload and re-sign weekly is real friction; that's when the $99 (TestFlight)
+  pays for itself. Free alternative to ask about: whether Mesa School can add students to an
+  education developer team.
+
 ## 2026-11-03: iPhone app with screen reading (replaces "iOS lite = Shortcut")
 - **Founder decision:** iPhone is a priority market. iOS forbids an app from reading or tapping
   another app, so the Android method can't work. The one legitimate way to see another app's

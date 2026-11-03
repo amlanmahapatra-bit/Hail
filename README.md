@@ -122,6 +122,18 @@ never receives audio.
 Debug → tick **Simulate fares** (debug builds only). Chat: "Powai to Andheri station, cheapest"
 → you get a list of rides with test fares → tap one → Hail opens that app.
 
+## iPhone app (`ios/`)
+iPhones don't let apps read other apps, so on iPhone Hail reads prices through **screen
+broadcast** (one tap to start, red indicator while on). It reads on the iPhone itself and keeps
+only the prices. Flow: Hail opens Uber, you look at the prices, a notification says "Got Uber's
+prices", you tap it, then the same for Ola and Rapido, then pick a ride and Hail opens that app.
+
+- Shared logic tests (Linux or Mac): `cd ios/HailCore && swift test` (expect "Executed 10 tests,
+  with 0 failures")
+- The app builds on GitHub Actions (workflow **iOS**, macOS runner) for the iOS Simulator.
+- **To install on your iPhone** you need the Apple Developer Program ($99/year). Then we add a
+  TestFlight upload step, and you install Hail from the TestFlight app. No Mac needed.
+
 ## UI screenshots (no phone needed)
 `docs/ui/` has the app's real screens, rendered from its code with Robolectric and fed a real
 backend conversation (`tools/make_ui_fixtures.py`). To regenerate them:

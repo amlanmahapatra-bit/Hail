@@ -340,3 +340,29 @@ def test_ambiguous_place_uses_the_city_the_phone_is_in(phone):
         session="mumbai-session-1",
     )
     assert resp["action"]["drop"]["label"] == "Mumbai Airport T2"
+
+
+def test_iphone_client_checks_fares_with_screen_reading(client, clock):
+    """iPhone registers as able to check fares (screen reading); same flow, same gate."""
+    r = client.post(
+        "/v1/devices",
+        json={"platform": "ios", "capabilities": {"can_check_fares": True, "can_book": False}},
+    )
+    p = Phone.__new__(Phone)
+    p.c, p.clock, p.token, p.session = client, clock, r.json()["token"], "iphonesession1"
+    resp = p.say("Powai to Andheri station", category="auto")
+    assert resp["type"] == "action_request"
+    while resp["type"] == "action_request":
+        obs = observations(resp["action"]["app"], ["auto"], clock())
+        for o in obs:
+            o["screen_signature"] = f"{o['app']}.ios_ocr.draft1"
+        resp = p.post(
+            {
+                "type": "tool_result",
+                "action_id": resp["action_id"],
+                "status": "ok",
+                "observations": obs,
+            }
+        )
+    assert resp["type"] == "recommendation" and resp["live"] is True
+    assert p.confirm(resp)["type"] == "handoff_request"

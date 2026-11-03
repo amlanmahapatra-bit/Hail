@@ -2,6 +2,33 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-03: iPhone app with screen reading (replaces "iOS lite = Shortcut")
+- **Founder decision:** iPhone is a priority market. iOS forbids an app from reading or tapping
+  another app, so the Android method can't work. The one legitimate way to see another app's
+  prices is **iPhone screen broadcast** (ReplayKit, as used by Zoom screen sharing). The user starts
+  it with one tap, and a red indicator shows while it's on. Hail's broadcast extension reads frames
+  **on the iPhone** with Apple's text recognition (Vision) and drops them at once. Only parsed fares
+  (catalog keys + numbers) reach the app. No images or screen text are stored or uploaded.
+- **Flow (assisted, about 3-4 taps more than Android):** Hail opens Uber/Ola on the trip via their
+  public deep links (Rapido has none, so the destination is copied for pasting). The extension
+  reads the fare list (the user may scroll), then a notification "Got Uber's prices, tap to
+  continue" brings the user back. Same for Ola and Rapido, then the same options card. The pick
+  opens the winning app on the trip, and the user taps Book. iPhone can't pre-select the ride (no
+  tapping other apps).
+- Same backend protocol and gate: the iPhone registers `platform: ios` with
+  `can_check_fares: true`. Readings are labelled `<app>.ios_ocr.draft1` and are live.
+- **Shared logic** (`ios/HailCore`: fare reader, ride types, voice pick, frame accumulator) is
+  pure Swift, tested on Linux (`swift test`) with fixtures from the founder's **iPhone**
+  recordings, the exact screens the extension reads. The app and extension (SwiftUI, ReplayKit,
+  Vision, Speech, AVFoundation, App Intents/Siri) build on a macOS GitHub runner.
+- **Risks:** (1) broadcast extensions have a ~50 MB memory limit, and Vision on full frames must
+  fit; (2) OCR may misread "₹" (needs device testing); (3) Apple review of a screen-reading app is
+  untested territory. TestFlight external testing gets a light review, the App Store a full one;
+  (4) 60-second freshness: the user must tap the notification promptly.
+- **Cost:** Apple Developer Program ($99/yr) is required to install on any iPhone (TestFlight).
+  There's no way around it without a Mac. macOS CI minutes are limited, so the iOS workflow runs
+  only when `ios/` changes.
+
 ## 2026-11-02: Premium category, remembered ride type, favourites, 1-minute prices, ride pre-selected
 - **Categories:** Auto · Bike · Cab (economy: non-AC, AC, priority, luggage) · **Premium** (sedans
   and luxury: Uber Premier AC and Black, Ola Prime Sedan and Prime Plus, Rapido Cab Premium) · Cab XL.

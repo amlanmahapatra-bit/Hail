@@ -1,0 +1,8 @@
+Hail.xcodeproj/
+Hail/Info.plist
+Hail/Hail.entitlements
+HailBroadcast/Info.plist
+HailBroadcast/HailBroadcast.entitlements
+HailCore/.build/
+build/
+*.ipa

@@ -22,9 +22,10 @@ not a fare dashboard. Keep every UI minimal and functional (UX is designed later
 - **Android (first client):** native Kotlin. Bare chat screen, AccessibilityService (reads ride
   apps and taps), foreground service with persistent notification and Stop. Direct APK pilot
   (~50 users), not the Play Store. Strictly user-initiated, visible, instantly stoppable.
-- **iOS lite (later):** iOS cannot read or tap other apps, so iOS gets fare estimates, ONDC
-  and deep-link handoff. v0 is an Apple Shortcut (no Mac, no developer account). The backend is
-  platform-agnostic via `capabilities`.
+- **iPhone (`ios/`):** iOS forbids reading/tapping other apps, so the iPhone app reads prices via
+  **screen broadcast** (ReplayKit extension + on-device Vision OCR) while the user flips through
+  the apps (assisted flow, see docs/decisions.md). Same backend protocol; `platform: ios`.
+  Shared Swift logic in `ios/HailCore` (tested on Linux); app built on macOS CI via XcodeGen.
 - **Cost:** minimise spend. Free CI builds, zero third-party Android libraries, free-tier hosting.
 - **ONDC (later):** Buyer App on TRV10 v2.0.1, starting with Namma Yatri. `ondc_search` is a stub.
 - Out of scope now: web app, UI polish, WhatsApp, payments, live ONDC.
@@ -67,6 +68,11 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
 - Flag risks and disagreements early.
 
 ## Layout
+`ios/`: `HailCore` (Swift package: FareReader, ReaderConfigs, RideCategory, VoicePick,
+FareAccumulator; `swift test`) · `Hail/` (SwiftUI app: ChatModel, ChatView, Api, RideApps,
+Voice, Location, Intents) · `HailBroadcast/` (screen-reading extension) · `Shared/` (App Group
+files) · `project.yml` (XcodeGen).
+
 ```
 backend/app/   main.py (HTTP) · agent.py (loop) · gate.py (confirmation) · tools.py (schemas,
                prompt) · llm.py (OpenRouter + FakeLLM) · ranking.py · geocode.py (stub) ·

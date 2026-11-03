@@ -1,0 +1,36 @@
+name: iOS
+
+# Runs only when the iPhone app or the shared reader config changes (macOS minutes are scarce).
+on:
+  push:
+    paths: ["ios/**", "backend/app/readers_config.json", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", "backend/app/readers_config.json", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+jobs:
+  core:
+    # Shared logic (fare reading, ride types, voice picks) on Linux: cheap, fast.
+    runs-on: ubuntu-latest
+    container: swift:6.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+        working-directory: ios/HailCore
+
+  app:
+    # The iPhone app + screen-reading extension, built for the iOS Simulator (no signing needed).
+    runs-on: macos-15
+    needs: core
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+        working-directory: ios
+      - name: Build for iOS Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Hail.xcodeproj -scheme Hail -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 80

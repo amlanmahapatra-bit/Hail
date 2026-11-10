@@ -133,6 +133,7 @@ fun PrivacyScreen(onAgree: () -> Unit, onAppInfo: () -> Unit) {
             "What's kept" to "Fare, ETA, ride type and surge for each option. Never screenshots, screen text, logins or driver details.",
             "Booking" to "Hail opens the app you pick with your trip filled in. You tap Book there. Hail never books or pays for you.",
             "Location and voice" to "Location is read once when you ask for a ride. Speech becomes text on your phone; Hail never gets audio.",
+            "Saved places" to "Places you ♥ are kept on your Hail account so they're one tap away. Only you see them. Long-press to remove one, or delete everything in Profile.",
             "Usage stats" to "Hail counts things like how many rides were compared, to improve the app. Never your places, fares or what's on screen.",
         ).forEach { (t, b) ->
             Card(Modifier.padding(bottom = 10.dp)) {

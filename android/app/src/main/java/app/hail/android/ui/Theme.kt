@@ -2,7 +2,9 @@ package app.hail.android.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -68,6 +70,9 @@ fun HailTheme(content: @Composable () -> Unit) {
             onPrimary = HailColors.Text,
         ),
         typography = type,
-        content = content,
-    )
+    ) {
+        // MaterialTheme leaves the default content colour black; text and icons on the dark
+        // background need it set explicitly.
+        CompositionLocalProvider(LocalContentColor provides HailColors.Text, content = content)
+    }
 }

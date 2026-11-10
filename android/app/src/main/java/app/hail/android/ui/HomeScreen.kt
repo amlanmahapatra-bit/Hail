@@ -92,7 +92,7 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(18.dp))
-        Card(gradient = true, padding = 18.dp) {
+        Card(Modifier.fillMaxWidth(), gradient = true, padding = 18.dp) {
             Text("SAVED THIS MONTH", style = MaterialTheme.typography.labelSmall, color = HailColors.Text.copy(alpha = 0.85f))
             Text(rupees(s.savedThisMonth.toDouble()), fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 34.sp)
             Text(

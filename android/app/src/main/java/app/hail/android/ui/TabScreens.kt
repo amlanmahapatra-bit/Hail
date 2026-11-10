@@ -55,7 +55,7 @@ fun SavingsScreen(trips: List<Trip>, thisMonth: Int) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 12.dp)) {
         Text("Savings", style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(18.dp))
-        Card(gradient = true, padding = 22.dp) {
+        Card(Modifier.fillMaxWidth(), gradient = true, padding = 22.dp) {
             Text("THIS MONTH", style = MaterialTheme.typography.labelSmall, color = HailColors.Text.copy(alpha = 0.85f))
             Text(rupees(thisMonth.toDouble()), fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 44.sp)
         }

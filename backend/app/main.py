@@ -1,6 +1,7 @@
 """HTTP API.
 
 POST   /v1/devices                         register a client, get a bearer token (once)
+POST   /v1/invite-requests                 ask to join the invite-only beta
 POST   /v1/sessions/{session_id}/messages  one inbound message -> one outbound response
 GET    /v1/config/readers                  ride-app reader selectors (remote-fixable)
 DELETE /v1/me                              delete everything stored for this device
@@ -29,6 +30,7 @@ from app.protocol import (
     FavoriteIn,
     Favorites,
     Inbound,
+    InviteRequestIn,
     Outbound,
 )
 from app.store import Conflict, DeviceRow, Store
@@ -76,8 +78,25 @@ def create_app(
 
     @app.post("/v1/devices", status_code=201)
     def register(body: DeviceRegistration) -> DeviceCredentials:
+        # Invite-only beta: the code is checked (and one use spent) before any device exists.
+        # The code is not stored on the device, so it doesn't link back to an invite request.
+        if settings.require_invite:
+            if not body.invite_code:
+                raise HTTPException(403, "invite_required")
+            if not store.redeem_invite(body.invite_code):
+                raise HTTPException(403, "invalid_invite")
         device_id, token = store.register_device(body.platform, body.capabilities, clock())
         return DeviceCredentials(device_id=device_id, token=token)
+
+    @app.post("/v1/invite-requests", status_code=201)
+    def request_invite(body: InviteRequestIn) -> dict[str, str]:
+        row = store.add_invite_request(
+            body.contact, body.city, clock(), settings.invite_requests_per_day
+        )
+        if row is None:
+            raise HTTPException(429, "too many requests today; try again tomorrow")
+        log.info("invite request received")  # never the contact itself
+        return {"status": "received"}
 
     @app.get("/v1/config/readers")
     def readers_config() -> dict[str, Any]:

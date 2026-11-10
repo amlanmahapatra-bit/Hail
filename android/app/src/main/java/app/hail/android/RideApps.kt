@@ -47,6 +47,10 @@ object RideApps {
     fun isInstalled(ctx: Context, app: String): Boolean =
         packages[app]?.let { ctx.packageManager.getLaunchIntentForPackage(it) } != null
 
+    /** "Connected" = installed and switched on in Hail. Never a stored login. */
+    fun connected(ctx: Context, prefs: Prefs): List<String> =
+        packages.keys.filter { it in prefs.enabledApps && isInstalled(ctx, it) }
+
     /** Opens [app] via its coordinate deep link (fresh task). False if it has none or it fails. */
     fun launchDeepLink(ctx: Context, app: String, pickup: Place, drop: Place): Boolean {
         val pkg = packages[app] ?: return false

@@ -262,9 +262,20 @@ Outbound = AssistantMessage | ActionRequest | Recommendation | HandoffRequest | 
 # ---------- Device registration ----------
 
 
+InviteCode = Annotated[str, Field(pattern=r"^[A-Za-z0-9-]{4,32}$")]
+
+
 class DeviceRegistration(Strict):
     platform: Platform
     capabilities: Capabilities
+    invite_code: InviteCode | None = None
+
+
+class InviteRequestIn(Strict):
+    """Someone asks to join the beta. `contact` is a phone number or email they chose to give."""
+
+    contact: Annotated[str, Field(min_length=3, max_length=120)]
+    city: Annotated[str, Field(max_length=60)] | None = None
 
 
 class FavoriteIn(Strict):

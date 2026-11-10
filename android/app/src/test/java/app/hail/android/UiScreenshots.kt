@@ -1,21 +1,32 @@
 package app.hail.android
 
-import android.app.Activity
-import android.content.ComponentName
-import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageInfo
-import android.content.pm.ResolveInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Looper
 import android.view.View
-import android.view.ViewGroup
-import android.widget.Button
-import android.widget.ScrollView
-import org.robolectric.RuntimeEnvironment
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
+import app.hail.android.ui.AppCheck
+import app.hail.android.ui.AppRow
+import app.hail.android.ui.CheckState
+import app.hail.android.ui.HailApp
+import app.hail.android.ui.HomeScreen
+import app.hail.android.ui.HomeState
+import app.hail.android.ui.InviteScreen
+import app.hail.android.ui.ConnectAppsScreen
+import app.hail.android.ui.Phase
+import app.hail.android.ui.PrivacyScreen
+import app.hail.android.ui.ProfileScreen
+import app.hail.android.ui.Recommendation
+import app.hail.android.ui.RidesScreen
+import app.hail.android.ui.SavingsScreen
+import app.hail.android.ui.Step
+import app.hail.android.ui.Tab
+import app.hail.android.ui.Trip
+import app.hail.android.ui.TripScreen
+import app.hail.android.ui.WelcomeScreen
 import org.json.JSONObject
 import org.junit.Assume
 import org.junit.Before
@@ -29,9 +40,9 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
 /**
- * Renders the app's real screens (the same Activity code as the APK) to PNG, with a real
- * conversation recorded from the backend (tools/make_ui_fixtures.py). Runs only on request:
- *   ./gradlew screenshots -PhailScreens=1     -> app/build/ui-screens/
+ * Renders the app's screens (the same Compose code as the APK) to PNG with a real conversation
+ * recorded from the backend (tools/make_ui_fixtures.py). Runs only on request:
+ *   ./gradlew testDebugUnitTest -PhailScreens=1 --tests '*UiScreenshots*'  -> app/build/ui-screens/
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w393dp-h852dp-xxhdpi")
@@ -39,124 +50,77 @@ import java.io.File
 class UiScreenshots {
     private val out = File("build/ui-screens").apply { mkdirs() }
     private val convo = JSONObject(javaClass.getResource("/ui/conversation.json")!!.readText())
+    private val rec = Recommendation.from(convo.getJSONObject("recommendation"))
+    private val favs = listOf(
+        JSONObject("""{"id":1,"label":"College","lat":null,"lng":null}"""),
+        JSONObject("""{"id":2,"label":"Forum Mall","lat":12.9352,"lng":77.6245}"""),
+        JSONObject("""{"id":3,"label":"MG Road","lat":12.9756,"lng":77.605}"""),
+    )
+    private val trips = listOf(
+        Trip(1_793_000_000_000, "Koramangala", "ola", "Auto", "₹46", 3, true),
+        Trip(1_792_900_000_000, "MG Road", "rapido", "Cab Non AC", "₹101", 17, true),
+        Trip(1_792_800_000_000, "Forum Mall", "uber", "Auto", "₹49.40", null, true),
+    )
+    private val apps = listOf(AppRow("uber", true, true), AppRow("ola", true, true), AppRow("rapido", false, false))
 
     @Before fun onlyWhenAsked() = Assume.assumeTrue(System.getProperty("hail.screens") == "1")
 
-    private fun idle() = shadowOf(Looper.getMainLooper()).idle()
-
-    private fun save(view: View, name: String) {
-        idle()
-        val w = view.width.takeIf { it > 0 } ?: 1179
-        val h = view.height.takeIf { it > 0 } ?: 2556
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        bmp.eraseColor(Color.WHITE)
-        view.draw(Canvas(bmp))
+    private fun shot(name: String, content: @Composable () -> Unit) {
+        val a = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
+        a.setContent(content = content)
+        shadowOf(Looper.getMainLooper()).idle()
+        val v: View = a.window.decorView
+        val bmp = Bitmap.createBitmap(v.width.takeIf { it > 0 } ?: 1179, v.height.takeIf { it > 0 } ?: 2556, Bitmap.Config.ARGB_8888)
+        bmp.eraseColor(Color.BLACK)
+        v.draw(Canvas(bmp))
         File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    /** The whole scrollable chat, top to bottom, as one tall image. */
-    private fun saveFull(scroll: ScrollView, name: String) {
-        idle()
-        val content = scroll.getChildAt(0)
-        content.measure(
-            View.MeasureSpec.makeMeasureSpec(scroll.width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    private fun main(tab: Tab = Tab.HOME, phase: Phase = Phase.Idle, body: @Composable () -> Unit) = @Composable {
+        HailApp(
+            step = Step.MAIN, tab = tab, onTab = {}, phase = phase, onClosePhase = {},
+            welcome = {}, invite = {}, privacy = {}, apps = {},
+            home = body, rides = body, savings = body, profile = body, trip = body,
         )
-        content.layout(0, 0, content.measuredWidth, content.measuredHeight)
-        val bmp = Bitmap.createBitmap(content.measuredWidth, content.measuredHeight, Bitmap.Config.ARGB_8888)
-        bmp.eraseColor(Color.WHITE)
-        content.draw(Canvas(bmp))
-        File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private fun prefs(): Prefs = Prefs(RuntimeEnvironment.getApplication()).apply {
-        consentGiven = true
-        appsSetupDone = true
+    private fun onboarding(step: Step, body: @Composable () -> Unit) = @Composable {
+        HailApp(
+            step = step, tab = Tab.HOME, onTab = {}, phase = Phase.Idle, onClosePhase = {},
+            welcome = body, invite = body, privacy = body, apps = body,
+            home = {}, rides = {}, savings = {}, profile = {}, trip = {},
+        )
     }
 
-    private fun install(pkg: String) {
-        val ctx = RuntimeEnvironment.getApplication()
-        val pm = shadowOf(ctx.packageManager)
-        pm.installPackage(PackageInfo().apply {
-            packageName = pkg
-            applicationInfo = ApplicationInfo().apply { packageName = pkg }
-        })
-        val launch = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(pkg)
-        pm.addResolveInfoForIntent(launch, ResolveInfo().apply {
-            activityInfo = ActivityInfo().apply { packageName = pkg; name = "$pkg.Main" }
-        })
-        pm.addActivityIfNotPresent(ComponentName(pkg, "$pkg.Main"))
+    private fun trip(phase: Phase) = main(phase = phase) {
+        TripScreen(phase, { it == "Koramangala" }, {}, {}, {}, {}, {}, {}, {})
     }
 
-    private fun say(a: MainActivity, s: String) {
-        MainActivity::class.java.getDeclaredMethod("say", String::class.java).apply { isAccessible = true }.invoke(a, s)
+    @Test fun onboarding() {
+        shot("01_welcome", onboarding(Step.WELCOME) { WelcomeScreen {} })
+        shot("02_invite", onboarding(Step.INVITE) { InviteScreen(null, false, false, false, {}, { _, _ -> }, {}) })
+        shot("03_privacy", onboarding(Step.PRIVACY) { PrivacyScreen({}, {}) })
+        shot("04_connect_apps", onboarding(Step.APPS) { ConnectAppsScreen(apps, { _, _ -> }, {}, {}, {}) })
     }
 
-    private fun scrollOf(a: Activity): ScrollView {
-        fun find(v: View): ScrollView? = when (v) {
-            is ScrollView -> v
-            is ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
-            else -> null
-        }
-        return find(a.window.decorView)!!
+    @Test fun home_and_tabs() {
+        val home = HomeState("auto", favs, 20, 3, null, false)
+        shot("10_home", main { HomeScreen(home, {}, {}, {}, {}, {}, {}) })
+        shot("11_home_setup", main { HomeScreen(HomeState(null, emptyList(), 0, 0, "Turn on Hail in Accessibility so it can check prices.", false), {}, {}, {}, {}, {}, {}) })
+        shot("30_rides", main(Tab.RIDES) { RidesScreen(trips) })
+        shot("31_savings", main(Tab.SAVINGS) { SavingsScreen(trips, 20) })
+        shot("32_profile", main(Tab.PROFILE) { ProfileScreen(apps, true, "0.2.0", true, { _, _ -> }, {}, {}, {}, {}, {}) })
     }
 
-    private fun buttons(v: View): List<Button> = when (v) {
-        is Button -> listOf(v)
-        is ViewGroup -> (0 until v.childCount).flatMap { buttons(v.getChildAt(it)) }
-        else -> emptyList()
-    }
-
-    @Test fun s1_consent() {
-        val a = Robolectric.buildActivity(ConsentActivity::class.java).setup().get()
-        save(a.window.decorView, "1_consent")
-        saveFull(scrollOf(a), "1b_consent_full")
-    }
-
-    @Test fun s2_connected_apps() {
-        install("com.ubercab"); install("com.olacabs.customer") // Rapido "not installed"
-        val a = Robolectric.buildActivity(AppsActivity::class.java).setup().get()
-        save(a.window.decorView, "2_connected_apps")
-    }
-
-    @Test fun s3_to_s6_chat() {
-        prefs().apply {
-            favoritesCache = """[{"id":1,"label":"FF21 Maya Hostel","lat":null,"lng":null},
-                {"id":2,"label":"Mesa School of Business","lat":null,"lng":null},
-                {"id":3,"label":"Forum Mall Koramangala","lat":12.9352,"lng":77.6245}]"""
-        }
-        install("com.ubercab"); install("com.olacabs.customer"); install("com.rapido.passenger")
-        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
-        save(a.window.decorView, "3_chat_start")
-
-        say(a, "🎤 ${convo.getString("said")}")
-        save(a.window.decorView, "4_listening")
-
-        val log = scrollOf(a).getChildAt(0) as ViewGroup
-        log.removeViewAt(log.childCount - 1)
-        say(a, "You (voice): ${convo.getString("said")}")
-        a.onResponse(convo.getJSONObject("ask"))
-        save(a.window.decorView, "4b_which_ride")
-
-        buttons(scrollOf(a)).forEach { it.isEnabled = false } // the tap on "Auto"
-        MainActivity::class.java.getDeclaredMethod("rememberRideType", String::class.java)
-            .apply { isAccessible = true }.invoke(a, convo.getString("category"))
-        say(a, "You: ${RideCategory.of(convo.getString("category"))!!.label}")
-        val apps = convo.getJSONArray("apps_checked")
-        for (i in 0 until apps.length()) a.onProgress("Checking ${apps.getString(i).replaceFirstChar { it.uppercase() }}…")
-        a.onResponse(convo.getJSONObject("recommendation"))
-        save(a.window.decorView, "5_options")
-        buttons(scrollOf(a)).firstOrNull { it.text.startsWith("Show ") }?.performClick()
-        saveFull(scrollOf(a), "5b_options_expanded")
-
-        buttons(scrollOf(a)).forEach { it.isEnabled = false } // what a tap does
-        a.onResponse(convo.getJSONObject("done"))
-        save(a.window.decorView, "6_opened")
-    }
-
-    @Test fun s7_debug() {
-        prefs()
-        val a = Robolectric.buildActivity(DebugActivity::class.java).setup().get()
-        save(a.window.decorView, "7_debug")
+    @Test fun trip_flow() {
+        shot("20_listening", trip(Phase.Listening(convo.getString("said"))))
+        shot("21_checking", trip(Phase.Checking("Koramangala", "auto", listOf(
+            AppCheck("uber", CheckState.DONE), AppCheck("ola", CheckState.DONE), AppCheck("rapido", CheckState.READING)))))
+        shot("22_which_ride", trip(Phase.Asking(convo.getJSONObject("ask").getString("text"),
+            RideCategory.entries.toList())))
+        shot("23_results", trip(Phase.Results(rec, "Koramangala")))
+        shot("24_opening", trip(Phase.Opening("Ola")))
+        shot("25_done", trip(Phase.Done("Ola", "Auto", convo.getJSONObject("done").optString("text"), 3, false)))
+        shot("26_reply", trip(Phase.Reply("Where should I pick you up from?")))
     }
 }

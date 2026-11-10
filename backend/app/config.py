@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # Each app's prices must reach the server within this many seconds of being read on the
     # phone, or they are rejected: only live readings are shown.
     max_price_age_seconds: int = 60
+    # Invite-only beta: new devices must bring a valid invite code. Off for local dev and tests;
+    # turn on in production (REQUIRE_INVITE=true).
+    require_invite: bool = False
+    invite_requests_per_day: int = 200
 
 
 @lru_cache

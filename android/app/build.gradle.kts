@@ -1,6 +1,13 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// Firebase Analytics turns on only when a Firebase config is present (it is not committed).
+// Without it the app builds and runs the same, and Analytics.event() does nothing.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
@@ -47,6 +54,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 
     compileOptions {
@@ -65,6 +73,17 @@ android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("ge
 tasks.named("preBuild") { dependsOn(copyReaderConfig) }
 
 dependencies {
+    // Jetpack Compose (Google, first-party) for the app UI. See docs/decisions.md.
+    val composeBom = platform("androidx.compose:compose-bom:2025.05.00")
+    implementation(composeBom)
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    // Firebase Analytics (Google). Coarse events only; see Analytics.kt and docs/decisions.md.
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
     // Test-only. The app itself has no third-party dependencies.
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

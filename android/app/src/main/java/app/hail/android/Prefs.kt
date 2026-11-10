@@ -37,6 +37,10 @@ class Prefs(context: Context) {
         get() = sp.getString("favorites", "[]")!!
         set(v) = sp.edit().putString("favorites", v).apply()
 
+    var welcomeSeen: Boolean
+        get() = sp.getBoolean("welcome_seen", false)
+        set(v) = sp.edit().putBoolean("welcome_seen", v).apply()
+
     var appsSetupDone: Boolean
         get() = sp.getBoolean("apps_setup_done", false)
         set(v) = sp.edit().putBoolean("apps_setup_done", v).apply()

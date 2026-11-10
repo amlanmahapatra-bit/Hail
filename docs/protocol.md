@@ -23,6 +23,14 @@ The backend decides; the phone acts. All JSON, UTF-8, HTTPS in production.
 {"device_id": "dev_3f9c0a…", "token": "q2Vt…"}
 ```
 
+Invite-only beta: when the server runs with `REQUIRE_INVITE=true`, the request must also carry
+`"invite_code": "HAIL-ABC123"`. Missing → 403 `invite_required`; unknown or used up → 403
+`invalid_invite`. Each code has a number of uses; the code is not stored with the device.
+
+`POST /v1/invite-requests {"contact": "9876543210", "city": "Bangalore"}` → 201
+`{"status": "received"}` (no auth; `city` optional; the same contact twice is one request; 429 after
+the daily cap). Codes are created and requests approved with `tools/invites.py`.
+
 `capabilities` tells the agent what this client can do. iOS cannot read other apps, so an iOS
 client sends `{"can_check_fares": false, "can_book": false}` and the agent never sends it
 `CHECK_FARES`.

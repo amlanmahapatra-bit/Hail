@@ -19,6 +19,41 @@ class Api(private val prefs: Prefs) {
         prefs.deviceToken = res.getString("token")
     }
 
+    /**
+     * Invite-only beta: registers this phone with an invite code. Returns null on success, or a
+     * message to show. (The backend only checks codes when REQUIRE_INVITE is on.)
+     */
+    fun registerWithInvite(code: String?): String? {
+        val body = JSONObject()
+            .put("platform", "android")
+            .put("capabilities", JSONObject().put("can_check_fares", true).put("can_book", true))
+        if (!code.isNullOrBlank()) body.put("invite_code", code.trim().uppercase())
+        return try {
+            prefs.deviceToken = request("POST", "/v1/devices", body, auth = false).getString("token")
+            null
+        } catch (e: ApiException) {
+            when (e.status) {
+                403 -> "That code didn't work. Check it, or request an invite."
+                422 -> "Codes look like HAIL-ABC123."
+                else -> "Couldn't reach Hail (${e.status}). Try again."
+            }
+        } catch (e: IOException) {
+            "Couldn't reach Hail. Check your internet and try again."
+        }
+    }
+
+    /** "Request an invite": the contact the person typed in, and optionally their city. */
+    fun requestInvite(contact: String, city: String?): String? = try {
+        val body = JSONObject().put("contact", contact)
+        if (!city.isNullOrBlank()) body.put("city", city)
+        request("POST", "/v1/invite-requests", body, auth = false)
+        null
+    } catch (e: ApiException) {
+        if (e.status == 429) "Lots of requests today. Try again tomorrow." else "Couldn't send that (${e.status})."
+    } catch (e: IOException) {
+        "Couldn't reach Hail. Check your internet and try again."
+    }
+
     fun postMessage(sessionId: String, body: JSONObject): JSONObject {
         ensureRegistered()
         return try {

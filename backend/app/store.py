@@ -5,6 +5,8 @@ Tables:
   sessions           session state as JSON, optimistic locking via `version`
   fare_observations  the whitelisted observation fields only (no screen text, no location)
   fare_check_events  timestamps for per-device rate limiting
+  invites            beta invite codes and how often each was used
+  invite_requests    people asking to join the beta (the contact they chose to give)
 """
 
 import hashlib
@@ -91,6 +93,29 @@ class FareCheckEventRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     device_id: Mapped[str] = mapped_column(String(64), index=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class InviteRow(Base):
+    """A beta invite code. `uses` counts redemptions; a device keeps working once registered."""
+
+    __tablename__ = "invites"
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    note: Mapped[str] = mapped_column(String(120), default="")
+    max_uses: Mapped[int] = mapped_column(Integer, default=1)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class InviteRequestRow(Base):
+    """A request to join the beta. Holds only the contact and city the person typed in."""
+
+    __tablename__ = "invite_requests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    contact: Mapped[str] = mapped_column(String(120), index=True)
+    city: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|invited
+    invite_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Conflict(Exception):
@@ -199,6 +224,79 @@ class Store:
                 return False
             db.add(FareCheckEventRow(device_id=device_id, at=now))
             return True
+
+    # invites
+    INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I: easy to read aloud
+
+    def create_invite(self, now: datetime, note: str = "", max_uses: int = 1) -> str:
+        code = "HAIL-" + "".join(secrets.choice(self.INVITE_ALPHABET) for _ in range(6))
+        with self.db() as db, db.begin():
+            db.add(InviteRow(code=code, note=note[:120], max_uses=max_uses, uses=0, created_at=now))
+        return code
+
+    def redeem_invite(self, code: str) -> bool:
+        """Uses one redemption of `code` (case-insensitive). False if unknown or used up."""
+        with self.db() as db, db.begin():
+            res = db.execute(
+                update(InviteRow)
+                .where(InviteRow.code == code.strip().upper(), InviteRow.uses < InviteRow.max_uses)
+                .values(uses=InviteRow.uses + 1)
+            )
+            return res.rowcount == 1
+
+    def list_invites(self) -> list[InviteRow]:
+        with self.db() as db:
+            return list(db.scalars(select(InviteRow).order_by(InviteRow.created_at)))
+
+    def add_invite_request(
+        self, contact: str, city: str | None, now: datetime, per_day: int
+    ) -> InviteRequestRow | None:
+        """Stores a request (the same contact twice returns the first). None if the daily cap
+        is reached."""
+        contact = contact.strip()
+        with self.db() as db, db.begin():
+            existing = db.scalar(
+                select(InviteRequestRow).where(
+                    func.lower(InviteRequestRow.contact) == contact.lower()
+                )
+            )
+            if existing is not None:
+                return existing
+            today = db.scalar(
+                select(func.count())
+                .select_from(InviteRequestRow)
+                .where(InviteRequestRow.created_at >= now - timedelta(days=1))
+            )
+            if today >= per_day:
+                return None
+            row = InviteRequestRow(contact=contact, city=city, status="pending", created_at=now)
+            db.add(row)
+            db.flush()
+            return row
+
+    def list_invite_requests(self, status: str | None = None) -> list[InviteRequestRow]:
+        with self.db() as db:
+            q = select(InviteRequestRow).order_by(InviteRequestRow.created_at)
+            if status:
+                q = q.where(InviteRequestRow.status == status)
+            return list(db.scalars(q))
+
+    def approve_invite_request(self, request_id: int, now: datetime) -> str | None:
+        """Creates a one-use code for a pending request and marks it invited."""
+        with self.db() as db:
+            row = db.get(InviteRequestRow, request_id)
+            if row is None:
+                return None
+            if row.invite_code:
+                return row.invite_code
+        code = self.create_invite(now, note=f"request {request_id}")
+        with self.db() as db, db.begin():
+            db.execute(
+                update(InviteRequestRow)
+                .where(InviteRequestRow.id == request_id)
+                .values(status="invited", invite_code=code)
+            )
+        return code
 
     # privacy
     def delete_device_data(self, device_id: str) -> None:

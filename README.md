@@ -4,11 +4,12 @@ One request, every cab, best price. An AI agent that fetches fares from Uber, Ol
 on your phone and lists every option best-first. You tap the one you want, Hail opens that
 app with your trip filled in, and you book it there.
 
-Status: Week 1. The backend agent loop and the confirmation gate work end to end with a fake
-phone. The Android app builds: consent screen, connected apps, accessibility service, screen
-dumper, Stop notification, chat with an option picker, and draft fare readers for Uber, Ola and
-Rapido written from the founder's screen recordings (docs/readers.md). The readers still need
-checking on a real Android phone.
+Status: the backend agent loop and the confirmation gate work end to end with a fake phone
+(28/30 on a 30-request quality test with real Gemini). The Android app is a proper app now
+(Jetpack Compose): invite-only onboarding, Home / Rides / Savings / Profile, and trip screens
+(listening, checking your apps, best ride, done). Underneath: the accessibility service, Stop
+notification, voice, and draft fare readers for Uber, Ola and Rapido written from the founder's
+screen recordings (docs/readers.md). The readers still need checking on a real Android phone.
 
 ## Backend: setup
 
@@ -25,7 +26,7 @@ cp .env.example .env         # then put your OpenRouter key in OPENROUTER_API_KE
 ```bash
 cd backend
 uv run ruff check . && uv run ruff format --check .
-uv run pytest -q             # expect: "69 passed"
+uv run pytest -q             # expect: "76 passed"
 ```
 
 ## Acceptance test: fake phone
@@ -56,6 +57,23 @@ uv run python ../tools/fake_phone.py --base-url http://127.0.0.1:8000
 To reach it from a phone, use a Cloudflare quick tunnel:
 `cloudflared tunnel --url http://localhost:8000` (it prints an `https://….trycloudflare.com` URL).
 
+## Invite-only beta
+
+Turn it on in production with `REQUIRE_INVITE=true` in `backend/.env` (it is off by default, so
+local testing needs no code). Then, from `backend/`:
+```bash
+uv run python ../tools/invites.py create 10 --note "Mesa batch"   # 10 one-use codes
+uv run python ../tools/invites.py requests                        # who asked in the app
+uv run python ../tools/invites.py approve 3                       # a code for request #3
+```
+In the app: Get started → enter the code (debug builds also offer "Continue without a code").
+
+## Analytics (Firebase)
+
+Off until you add a Firebase config. Firebase console → Add project → Add Android app with
+package `app.hail.android` → download `google-services.json` → put it in `android/app/`
+(never commit it; it's in .gitignore). Rebuild. Events are coarse only; see `Analytics.kt`.
+
 ## Android: get the APK
 
 **No Android Studio needed.** Every push builds the APK on GitHub:
@@ -69,14 +87,15 @@ Fare-reader unit tests: `cd android && ./gradlew testDebugUnitTest` (fixtures fr
 The APK lands in `android/app/build/outputs/apk/debug/`.
 
 ### First run on the phone
-1. Open Hail → read the consent screen → **I agree** → Android Accessibility settings →
-   **Hail ride comparison** → turn on.
+1. Open Hail → **Get started** → enter your invite code → read **How Hail works** →
+   **I agree, turn it on** → Android Accessibility settings → **Hail ride comparison** → turn on.
    - If it's greyed out or says "Restricted setting" (Android 13+ sideloaded apps): App info →
      ⋮ (top right) → **Allow restricted settings**, then turn it on again.
-2. **Connected apps** opens next. For each of Uber, Ola and Rapido: install it if missing, tap
-   **Open … to log in**, and log in inside that app once. Leave **Use … with Hail** ticked.
-3. Allow notifications (needed for the Stop button).
-4. **Debug** → set **Backend URL** to your tunnel URL (see "Run the server"), then **Save URL**.
+   Test builds: before entering a code, tap **Server settings** and set **Backend URL** to your
+   tunnel URL (see "Run the server"), then **Save URL**.
+2. **Connect your apps** opens next. For each of Uber, Ola and Rapido: install it if missing, tap
+   **Ready · tap to open and log in**, and log in inside that app once. Leave its switch on.
+3. Allow notifications (needed for the Stop button). Debug tools are under **Profile**.
 
 ### Test fare reading on the phone (5 minutes, no server needed)
 1. Debug → **Test fare check** → type a destination near you (e.g. "Forum Mall Koramangala").
@@ -104,22 +123,22 @@ The APK lands in `android/app/build/outputs/apk/debug/`.
    (your name, saved places), so check them before sharing and delete them afterwards.
 
 ### Ride types
-Pick **Auto / Bike / Cab / Premium / Cab XL** in the chat's **Ride type** dropdown, or say it
+Pick **Auto / Bike / Cab / Premium / Cab XL** with the chips under **Where to?**, or say it
 ("rickshaw", "sedan", "big cab"). If you don't, Hail asks with five buttons, and remembers your
-answer in the dropdown. You only see that type's rides, best first, with when the prices were
+answer in the chips. You only see that type's rides, best first, with when the prices were
 read ("Live prices · updated 12:16:05 PM"; prices older than 1 minute are rejected). Tap ♡ on a
 result to save the place; saved places appear as one-tap ♥ buttons above the text box
 (long-press to remove).
 
 ### Voice
-Tap 🎤 in the chat (or long-press the Hail icon → **Speak to Hail**) and say e.g. "Koramangala,
+Tap the mic on Home (or long-press the Hail icon → **Speak to Hail**) and say e.g. "Koramangala,
 cheapest" or "Koramangala jaana hai, sasta wala". Hail reads out the top three rides and asks
 "Which one?". Say "Ola auto", "the first one" or "haan", or tap a ride. "None of these" or "nahi"
 cancels. The phone does the speech recognition (on the phone itself where supported). Hail
 never receives audio.
 
-### Test the chat loop without ride apps
-Debug → tick **Simulate fares** (debug builds only). Chat: "Powai to Andheri station, cheapest"
+### Test the app without ride apps
+Profile → Debug tools → tick **Simulate fares** (debug builds only). Home: "Powai to Andheri station, cheapest"
 → you get a list of rides with test fares → tap one → Hail opens that app.
 
 ## iPhone app (`ios/`)

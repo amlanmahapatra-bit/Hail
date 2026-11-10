@@ -13,3 +13,6 @@ android/app/build/
 android/local.properties
 android/.idea/
 *.apk
+# Firebase config: added locally or by CI from a secret, never committed
+android/app/google-services.json
+android/.kotlin/

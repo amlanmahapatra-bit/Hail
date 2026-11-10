@@ -2,6 +2,35 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-10: Hail becomes a proper app (Compose UI, invite-only beta, Firebase Analytics)
+- **Founder decision, after the 6 Nov mentor call:** Hail is an app first, with the agent
+  underneath. Invite-only sign-up ("request beta"), no city limit, branding, analytics. UI polish
+  comes off the never list.
+- **Android first.** Only Android can read and tap the ride apps; iPhone follows.
+- **Jetpack Compose** (Google, first-party) replaces the code-built chat screen: onboarding
+  (welcome, invite code, privacy, connect apps), then Home / Rides / Savings / Profile with the
+  trip screens (listening, checking your apps, results, done) on top. The engine is unchanged:
+  `AgentRunner`, the accessibility reader, voice and the confirmation gate. This ends the
+  "zero third-party Android libraries" rule for UI; the APK grows from ~0.9 MB to ~3 MB (release).
+- **Invite codes, not OTP.** Free; no SMS provider. `POST /v1/devices` takes `invite_code`, checked
+  only when `REQUIRE_INVITE=true` (off in dev and tests). `POST /v1/invite-requests` stores the
+  contact a person typed in. `tools/invites.py` creates codes and approves requests. The code is
+  not stored on the device row, so a device can't be traced back to its request.
+- **Firebase Analytics (founder's choice).** Trade-off stated: it is a Google SDK, which sits
+  awkwardly with "only fares leave your phone". So it is limited in code (`Analytics.kt`): coarse
+  events only (request started, options shown, ride opened, invite redeemed) with an allowlist of
+  parameters (category, count, app, savings bucket, live). Never places, coordinates, fares,
+  screen text, voice, contacts or invite codes. Advertising ID, ad personalisation and SSAID are
+  off in the manifest. The privacy screen says Hail counts usage. Delete my data resets the
+  analytics ID. Microsoft Clarity (session recording) was not added: it can capture what is on
+  screen, which conflicts with how Hail treats screen data.
+- Firebase only activates when `android/app/google-services.json` is present (not committed;
+  CI can write it from a secret). Without it the app builds and runs, and analytics is a no-op.
+- **Ride history and savings live on the phone** (`TripLog`), not on the backend. Test prices
+  never count as savings.
+- Revisit: OTP if invite codes leak; a privacy-first analytics tool if Firebase becomes a trust
+  problem with users; pan-India needs a real geocoder (the gazetteer covers 2 cities).
+
 ## 2026-11-03: iPhone without the $99 Apple Developer Program (free Apple ID sideloading)
 - **Founder constraint:** no budget for the Apple Developer Program. Apple lets anyone run their
   own builds on their own iPhone with a free Apple ID. Without a Mac, tools such as SideStore,

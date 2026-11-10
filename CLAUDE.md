@@ -19,16 +19,20 @@ not a fare dashboard. Keep every UI minimal and functional (UX is designed later
   `google/gemini-3.7-flash`). No Dify, LangChain-style frameworks or no-code tools.
 - **Backend:** Python 3.12, FastAPI, Pydantic, SQLAlchemy (SQLite now, Postgres later), pytest,
   ruff, uv.
-- **Android (first client):** native Kotlin. Bare chat screen, AccessibilityService (reads ride
-  apps and taps), foreground service with persistent notification and Stop. Direct APK pilot
-  (~50 users), not the Play Store. Strictly user-initiated, visible, instantly stoppable.
+- **Android (first client):** native Kotlin, UI in Jetpack Compose (onboarding, Home / Rides /
+  Savings / Profile, trip screens). AccessibilityService (reads ride apps and taps), foreground
+  service with persistent notification and Stop. Invite-only beta via direct APK, not the Play
+  Store yet. Strictly user-initiated, visible, instantly stoppable.
 - **iPhone (`ios/`):** iOS forbids reading/tapping other apps, so the iPhone app reads prices via
   **screen broadcast** (ReplayKit extension + on-device Vision OCR) while the user flips through
   the apps (assisted flow, see docs/decisions.md). Same backend protocol; `platform: ios`.
   Shared Swift logic in `ios/HailCore` (tested on Linux); app built on macOS CI via XcodeGen.
-- **Cost:** minimise spend. Free CI builds, zero third-party Android libraries, free-tier hosting.
+- **Cost:** minimise spend. Free CI builds, free-tier hosting. Android libraries: Google
+  first-party only (Jetpack Compose, Firebase Analytics); nothing else without a decision entry.
+- **Analytics:** Firebase Analytics, coarse events through `Analytics.kt` only (allowlisted
+  parameters; never places, coordinates, fares, screen text, voice, contacts). No session recording.
 - **ONDC (later):** Buyer App on TRV10 v2.0.1, starting with Namma Yatri. `ondc_search` is a stub.
-- Out of scope now: web app, UI polish, WhatsApp, payments, live ONDC.
+- Out of scope now: web app, WhatsApp, payments, live ONDC. (UI polish is in scope since 10 Nov.)
 
 ## Core loop
 The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one typed inbound
@@ -80,7 +84,8 @@ backend/app/   main.py (HTTP) · agent.py (loop) · gate.py (confirmation) · to
 backend/tests/ pytest suite
 tools/fake_phone.py   scripted phone for end-to-end tests without a device
 docs/          protocol.md, decisions.md
-android/       Kotlin client, no third-party libs: MainActivity (chat) · ConsentActivity · AppsActivity ·
+android/       Kotlin client: MainActivity (Compose host) · ui/ (HailApp, HailController, screens, theme) ·
+               Analytics (Firebase, limited) · AppsActivity (connected-apps helper) ·
                DebugActivity (dumper, backend URL, delete data) · HailAccessibilityService ·
                AgentService (FGS + Stop) · AgentRunner (session loop) · RideApps (deep links) ·
                FareReader + ReaderConfigs (fare parsing) · Navigator (reach the fare list) ·

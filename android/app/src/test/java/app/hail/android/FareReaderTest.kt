@@ -211,11 +211,38 @@ class FareReaderTest {
         )
     }
 
+    // Rapido 8.121.0, ANDROID, Mumbai: what Hail's own reader saw on the fare list
+    // (Debug "Test fare check", 2026-11-12 17:57 IST). Each row is one content description.
+    private fun desc(d: String, top: Int) = ScreenNode(null, d, 0, top, 1080, top + 180)
+    private val rapidoAndroidRows = listOf(
+        desc("Bike ride. Estimated fare ₹185in 4 mins.Selected.", 1200),
+        desc("Bike Pink ride. Estimated fare ₹132Original fare ₹152Not selected.", 1390),
+        desc("Scooty ride. Estimated fare ₹208in 4 mins.Not selected.", 1580),
+        desc("Auto ride. Estimated fare ₹200in 4 mins.Not selected.", 1770),
+        desc("Auto Priority ride. Estimated fare ₹253in 4 mins.Not selected.", 1960),
+    )
+
+    @Test fun rapido_android_rows_as_single_descriptions() {
+        assertEquals(ScreenState.FARE_LIST, FareReader.state(rapidoAndroidRows, rapido))
+        assertEquals(
+            mapOf(
+                "rapido_bike" to (185.0 to 4), "rapido_scooty" to (208.0 to 4),
+                "rapido_auto" to (200.0 to 4), "rapido_auto_priority" to (253.0 to 4),
+            ),
+            fares(FareReader.parse(rapidoAndroidRows, rapido)),
+        )
+    }
+
     @Test fun price_pattern_edge_cases() {
         assertEquals(49.40 to 49.40, FareReader.firstPrice("₹49.40", uber))
         assertEquals(118.0 to 131.0, FareReader.firstPrice("₹118 - ₹131", ola))
         assertEquals(1458.65 to 1458.65, FareReader.firstPrice("₹1,458.65", uber))
         assertEquals(null, FareReader.firstPrice("Insure your trips up to ₹10L", uber))
         assertEquals(49.0 to 49.0, FareReader.firstPrice("Rs. 49", uber))
+        assertEquals(185.0 to 185.0, FareReader.firstPrice("Estimated fare ₹185in 4 mins", rapido))
+        assertEquals(132.0 to 132.0, FareReader.firstPrice("₹132Original fare ₹152", rapido))
+        assertEquals(null, FareReader.firstPrice("Cover up to ₹5K", uber))
+        assertEquals(null, FareReader.firstPrice("Win ₹1Cr", uber))
+        assertEquals(null, FareReader.firstPrice("Insure up to ₹10Lakh", uber))
     }
 }

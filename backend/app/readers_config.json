@@ -2,7 +2,7 @@
   "version": 3,
   "source": "Transcribed from the founder's screen recordings, Bangalore, 2026-11-02 12:10-12:16 IST (iOS app versions). Product names, screen titles and text patterns are as shown on screen. NOT yet verified against Android accessibility dumps: the Android apps may expose the same text differently (merged content descriptions, 'Rs' vs '₹').",
   "status": "draft_from_ios_recordings",
-  "price_pattern": "(?:₹|Rs\\.?|INR)\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?)(?:\\s*[-–]\\s*(?:₹|Rs\\.?|INR)?\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?))?(?![0-9A-Za-z])",
+  "price_pattern": "(?:₹|Rs\\.?|INR)\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?)(?:\\s*[-–]\\s*(?:₹|Rs\\.?|INR)?\\s?([0-9][0-9,]*(?:\\.[0-9]{1,2})?))?(?![0-9]|(?:[LlKk]|Cr|cr|[Ll]akh|[Cc]rore)(?![a-z]))",
   "dismiss_text": [
     "Not now",
     "Skip",
@@ -33,15 +33,15 @@
       "deep_link_note": "No public deep-link format. Hail navigates (search bar -> destination -> suggestion).",
       "screens": {
         "fare_list": {
-          "all_text": [
-            "Book now"
-          ],
+          "all_text": [],
           "any_text": [
+            "Estimated fare",
             "Bargain & Book",
             "Women Preferred",
             "Priority Services",
             "Extra Space"
-          ]
+          ],
+          "note": "Android 8.121.0 (Mumbai, 2026-11-12) exposes each row as one description, e.g. 'Bike ride. Estimated fare ₹185in 4 mins.Selected.', and the Book Now button is not exposed as text, so 'Estimated fare' is the marker. iOS markers kept."
         },
         "loading": {
           "any_text": []
@@ -63,7 +63,8 @@
       },
       "eta_patterns": [
         "(\\d{1,2})\\s*min(?:s)?\\s*away",
-        "(\\d{1,2})\\s*mins?\\s*[·•]\\s*Drop"
+        "(\\d{1,2})\\s*mins?\\s*[·•]\\s*Drop",
+        "in\\s*(\\d{1,2})\\s*mins?"
       ],
       "products": {
         "Bike Direct": {
@@ -390,5 +391,6 @@
         "note": "From the recordings. Navigation (search bar -> type destination -> tap suggestion) is used when there is no deep link or it did not reach the fare list."
       }
     }
-  }
+  },
+  "price_pattern_note": "A price may run straight into text ('₹185in 4 mins', Rapido Android) but never into an amount suffix ('₹10L', '₹5K', '₹2 Cr' stays unread)."
 }

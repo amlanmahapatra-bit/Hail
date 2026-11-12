@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     hail_llm: Literal["openrouter", "fake"] = "openrouter"
     llm_timeout_seconds: float = 30.0
 
-    database_url: str = "sqlite:///./hail.db"
+    # Local: SQLite. Hosted: Supabase Postgres. Vercel's Supabase integration sets POSTGRES_URL.
+    database_url: str = Field(
+        "sqlite:///./hail.db", validation_alias=AliasChoices("DATABASE_URL", "POSTGRES_URL")
+    )
 
     confirmation_ttl_seconds: int = 90
     fare_checks_per_hour: int = 30

@@ -124,10 +124,13 @@ class Conflict(Exception):
 
 
 def engine_url(database_url: str) -> str:
-    """Use the psycopg 3 driver for plain postgres:// URLs (as Supabase gives them)."""
+    """Use the psycopg 3 driver for plain postgres:// URLs (as Supabase gives them), keeping
+    only the sslmode option: libpq rejects extras such as Supabase's `supa=` marker."""
     for prefix in ("postgres://", "postgresql://"):
         if database_url.startswith(prefix):
-            return "postgresql+psycopg://" + database_url[len(prefix):]
+            base, _, query = database_url[len(prefix):].partition("?")
+            keep = [kv for kv in query.split("&") if kv.startswith("sslmode=")]
+            return "postgresql+psycopg://" + base + ("?" + "&".join(keep) if keep else "")
     return database_url
 
 

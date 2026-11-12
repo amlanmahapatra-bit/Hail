@@ -244,7 +244,13 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
                 NavAction.Back -> svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
                 is NavAction.Wait -> Unit
             }
-            Thread.sleep(if (step is NavAction.Type) TYPE_SETTLE_MS else POLL_MS)
+            Thread.sleep(
+                when (step) {
+                    is NavAction.Type -> TYPE_SETTLE_MS
+                    is NavAction.Tap -> TAP_SETTLE_MS // apps animate to the next screen
+                    else -> POLL_MS
+                }
+            )
         }
         return "failed"
     }
@@ -388,6 +394,7 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
         private const val NAV_TIMEOUT_MS = 35_000L
         private const val LAUNCH_SETTLE_MS = 1_500L
         private const val TYPE_SETTLE_MS = 1_500L
+        private const val TAP_SETTLE_MS = 1_500L
         private const val POLL_MS = 700L
         private const val SCROLL_SETTLE_MS = 600L
         private const val MAX_SCROLLS = 4

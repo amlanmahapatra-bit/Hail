@@ -78,6 +78,14 @@ class NavigatorTest {
         assertTrue(olaHome[a.index].text!!.startsWith("Terminal 1"))
     }
 
+    @Test fun recent_destination_is_tried_once_then_search_is_used() {
+        val mem = NavMemory()
+        val goal = NavGoal("Terminal 1 Kempegowda Airport", null)
+        assertEquals("recent destination", (Navigator.decide(olaHome, ola, goal, mem) as NavAction.Tap).why)
+        // Still on home: the app ignored the tap. Open search rather than repeat it.
+        assertEquals("open search", (Navigator.decide(olaHome, ola, goal, mem) as NavAction.Tap).why)
+    }
+
     @Test fun recents_not_used_when_pickup_is_elsewhere() {
         val a = Navigator.decide(olaHome, ola, NavGoal("Terminal 1 Kempegowda Airport", "Mesa School of Business"), NavMemory())
         assertEquals("open search", (a as NavAction.Tap).why)

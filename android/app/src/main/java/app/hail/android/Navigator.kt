@@ -36,6 +36,8 @@ class NavMemory {
     var pickupUnverified = false
     /** Typed the destination into a labelled (non-editable) field; now waiting for suggestions. */
     var typedLabelledField = false
+    /** The recent-destination shortcut was tried once; after that, always search. */
+    var recentTried = false
     var lastAction: String? = null
     var repeats = 0
 }
@@ -123,8 +125,10 @@ object Navigator {
 
         // Home screen. A recent destination that matches exactly is the quickest route, but only
         // when pickup is the current location (recents keep the app's default pickup).
-        if (goal.pickupQuery == null) {
+        // Tried once only: if the app didn't respond, search instead of tapping it again.
+        if (goal.pickupQuery == null && !mem.recentTried) {
             bestMatch(nodes, goal.dropQuery, below = Int.MIN_VALUE, minScore = 1.0)?.let {
+                mem.recentTried = true
                 return NavAction.Tap(it, "recent destination")
             }
         }

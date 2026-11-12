@@ -215,6 +215,10 @@ class AssistantMessage(_Out):
     type: Literal["assistant_message"] = "assistant_message"
     text: str
     savings: Savings | None = None
+    # On a finished trip with no saving: why, so the app can say so instead of showing nothing.
+    # "no_comparable": no like-for-like ride from another app was checked.
+    # "not_cheapest": like-for-like rides were checked, and the pick wasn't the cheapest.
+    no_saving_reason: Literal["no_comparable", "not_cheapest"] | None = None
     done: bool = False
     ask: Ask | None = None
 

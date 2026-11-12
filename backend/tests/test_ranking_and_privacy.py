@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from app.agent import is_late_night
 from app.protocol import FareObservation
-from app.ranking import RankRequest, rank, savings
+from app.ranking import RankRequest, no_saving_reason, rank, savings
 from app.state import Option
 
 
@@ -51,6 +51,14 @@ def test_savings_same_type_same_round_only():
     s = savings(chosen, OPTS + [opt(9, "uber", "cab", 900, 900, 1, rnd=0)])
     assert s.amount == 55 and s.compared_against.option_id == "opt_1"
     assert savings(OPTS[2], OPTS) is None  # only bike: nothing comparable
+
+
+def test_no_saving_reason():
+    assert no_saving_reason(OPTS[1], OPTS) is None  # there is a saving
+    assert no_saving_reason(OPTS[2], OPTS) == "no_comparable"
+    cheap = opt(7, "rapido", "cab", 10, 10, 1)
+    pricey = opt(8, "uber", "cab", 50, 50, 1)
+    assert no_saving_reason(pricey, [cheap, pricey]) == "not_cheapest"
 
 
 def test_late_night_window():

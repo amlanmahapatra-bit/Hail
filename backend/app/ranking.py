@@ -145,3 +145,17 @@ def savings(chosen: Option, checked: list[Option]) -> Savings | None:
     if amount <= 0:
         return None
     return Savings(amount=amount, compared_against=view(priciest))
+
+
+def no_saving_reason(chosen: Option, checked: list[Option]) -> str | None:
+    """Why `savings` is None for this pick (None if there is a saving)."""
+    if savings(chosen, checked) is not None:
+        return None
+    cls = comparable_class(chosen)
+    has_comparable = any(
+        o.round == chosen.round
+        and o.observation.app != chosen.observation.app
+        and comparable_class(o) == cls
+        for o in checked
+    )
+    return "not_cheapest" if has_comparable else "no_comparable"

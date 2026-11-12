@@ -38,7 +38,7 @@ from app.protocol import (
     ToolResult,
     UserMessage,
 )
-from app.ranking import RankRequest, rank, savings, view
+from app.ranking import RankRequest, no_saving_reason, rank, savings, view
 from app.state import FareCheckBatch, Option, PendingAction, ResolvedPlace, SessionState, Status
 from app.tools import system_prompt, tools_for
 
@@ -196,7 +196,10 @@ class Agent:
             if sv:
                 text += f" You save ₹{sv.amount}."
             s.messages.append({"role": "assistant", "content": text})
-            return AssistantMessage(session_id=ctx.session_id, text=text, savings=sv, done=True)
+            reason = None if sv else no_saving_reason(option, list(s.options.values()))
+            return AssistantMessage(
+                session_id=ctx.session_id, text=text, savings=sv, no_saving_reason=reason, done=True
+            )
         s.status = Status.IDLE
         gate.invalidate(s)
         text = f"I couldn't open {app_name}. Check it's installed and logged in, then ask again."

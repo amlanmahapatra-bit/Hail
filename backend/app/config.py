@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     invite_requests_per_day: int = 200
     # Comma-separated one-use invite codes to create at startup if missing (hosted database).
     seed_invite_codes: str = ""
+    # Founder-only read of recent rides (fares, apps, savings; never places or text).
+    # Unset: the endpoint does not exist.
+    admin_token: SecretStr | None = None
 
 
 @lru_cache

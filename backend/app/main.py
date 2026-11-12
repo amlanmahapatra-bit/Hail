@@ -10,6 +10,7 @@ GET    /healthz
 
 import json
 import logging
+import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from fastapi import Body, Depends, FastAPI, Header, HTTPException, Response
 from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 
+from app.admin import ride_summary
 from app.agent import Agent, Hooks
 from app.config import Settings, get_settings
 from app.llm import FakeLLM, LLMClient, OpenRouterClient
@@ -99,6 +101,17 @@ def create_app(
             raise HTTPException(429, "too many requests today; try again tomorrow")
         log.info("invite request received")  # never the contact itself
         return {"status": "received"}
+
+    @app.get("/v1/admin/rides")
+    def admin_rides(
+        limit: int = 20, x_admin_token: Annotated[str | None, Header()] = None
+    ) -> list[dict[str, Any]]:
+        """Founder-only: recent ride requests with the fares each app returned, the pick and
+        the saving. No places, no message text, no device ids."""
+        want = settings.admin_token.get_secret_value() if settings.admin_token else None
+        if not want or not x_admin_token or not secrets.compare_digest(x_admin_token, want):
+            raise HTTPException(404, "Not Found")
+        return [ride_summary(row) for row in store.recent_sessions(min(max(limit, 1), 100))]
 
     @app.get("/v1/config/readers")
     def readers_config() -> dict[str, Any]:

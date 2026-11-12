@@ -178,6 +178,11 @@ class Store:
             return db.scalar(select(DeviceRow).where(DeviceRow.token_hash == _hash(token)))
 
     # sessions
+    def recent_sessions(self, limit: int) -> list[SessionRow]:
+        with self.db() as db:
+            q = select(SessionRow).order_by(SessionRow.updated_at.desc()).limit(limit)
+            return list(db.scalars(q))
+
     def load_session(self, session_id: str) -> tuple[SessionRow | None, SessionState | None]:
         with self.db() as db:
             row = db.get(SessionRow, session_id)

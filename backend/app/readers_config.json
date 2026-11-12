@@ -28,7 +28,7 @@
   "apps": {
     "rapido": {
       "package": "com.rapido.passenger",
-      "status": "android_fare_list_names_from_mumbai_recording_2026-11-12; search screen unverified",
+      "status": "android: fare list from Mumbai recording, search screen from Mumbai dump (2026-11-12)",
       "deep_link": null,
       "deep_link_note": "No public deep-link format. Hail navigates (search bar -> destination -> suggestion).",
       "screens": {
@@ -159,7 +159,11 @@
         "search_bar": [
           "Where do you want to go?"
         ],
-        "note": "From the recordings. Navigation (search bar -> type destination -> tap suggestion) is used when there is no deep link or it did not reach the fare list."
+        "note": "From the recordings. Navigation (search bar -> type destination -> tap suggestion) is used when there is no deep link or it did not reach the fare list.",
+        "drop_field": [
+          "Enter Drop location"
+        ],
+        "drop_field_note": "Android 8.121.0 (Mumbai dump, 2026-11-12): the drop field is a Compose node with content description 'Enter Drop location Input Field...', not marked editable. Hail taps it and types into the focused field."
       }
     },
     "uber": {

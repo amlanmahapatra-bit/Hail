@@ -106,6 +106,39 @@ class NavigatorTest {
         assertEquals(2, t3.index) // now the destination field
     }
 
+    // Rapido 8.121.0 on Android, Mumbai, from the founder's accessibility dump (2026-11-12):
+    // the search screen is Compose and the drop field is NOT marked editable; it is only a node
+    // described as "Enter Drop location Input Field...". Bounds and text exactly as dumped.
+    private fun d(desc: String, l: Int, t: Int, r: Int, b: Int) = ScreenNode(null, desc, l, t, r, b)
+    private fun rapidoSearch(suggestions: List<ScreenNode>) = listOf(
+        d("Pickup and Drop Screen", 0, 0, 1080, 2340),
+        d("Pickup Location is 116-6, Temple Ln, Anand Vihar, Andheri East, Mumbai. Double tap to change", 181, 278, 944, 414),
+        d("Add Stop to drop your friends", 934, 279, 1069, 414),
+        d("Enter Drop location Input Field. Enter at least 4 characters to start searching. After entering the Drop location, You will be navigated to the Fare Estimate screen automatically.", 181, 420, 944, 556),
+        n("For me", 799, 138, 939, 192),
+    ) + suggestions
+
+    @Test fun rapido_labelled_drop_field_is_typed_then_suggestion_tapped() {
+        val mem = NavMemory()
+        val goal = NavGoal("Bandra station", null)
+        val recents = listOf(
+            n("Omkar 1973", 136, 618, 378, 672),
+            n("Doctor Annie Besant Road, next to Neelam Center, Worli, Mumbai", 136, 683, 933, 728),
+        )
+        val type = Navigator.decide(rapidoSearch(recents), rapido, goal, mem) as NavAction.Type
+        assertEquals(3, type.index)
+        assertEquals("Bandra station", type.text)
+        // Suggestions not there yet: wait, don't tap an unrelated recent.
+        assertTrue(Navigator.decide(rapidoSearch(recents), rapido, goal, mem) is NavAction.Wait)
+        val results = listOf(
+            n("Bandra station", 136, 618, 432, 672),
+            n("Bandra Terminus, Station Road, Bandra East, Mumbai, Maharashtra, India", 136, 683, 933, 728),
+            n("Bandra Station (E)", 136, 809, 420, 863),
+        )
+        val tap = Navigator.decide(rapidoSearch(results), rapido, goal, mem) as NavAction.Tap
+        assertEquals("Bandra station", rapidoSearch(results)[tap.index].label)
+    }
+
     @Test fun never_taps_booking_buttons_even_if_they_match() {
         // Rapido "Check your pickup point" after Book now: nothing to do here, must not confirm.
         val confirm = listOf(

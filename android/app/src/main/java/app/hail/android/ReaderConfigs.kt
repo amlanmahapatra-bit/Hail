@@ -33,7 +33,10 @@ object ReaderConfigs {
                 )
             }.toList(),
             pricePattern = price,
-            nav = NavConfig(strings(o.optJSONObject("nav")?.optJSONArray("search_bar")), dismiss),
+            nav = NavConfig(
+                strings(o.optJSONObject("nav")?.optJSONArray("search_bar")), dismiss,
+                dropField = strings(o.optJSONObject("nav")?.optJSONArray("drop_field")),
+            ),
         )
     }
 

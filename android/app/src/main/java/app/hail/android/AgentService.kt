@@ -103,6 +103,7 @@ class AgentService : Service() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             b.addAction(Notification.Action.Builder(null, "Dump screen", dump).build())
+            b.setContentIntent(dump) // tapping the notification itself takes the dump too
         }
         return b.build()
     }

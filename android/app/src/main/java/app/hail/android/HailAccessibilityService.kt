@@ -136,9 +136,18 @@ class HailAccessibilityService : AccessibilityService() {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
         if (info.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
+        // Not editable itself (e.g. a Compose field exposed only by its label): tap it like a
+        // person would, then type into whichever field took input focus.
+        val target = if (info.isEditable) info else {
+            tap(info, null)
+            Thread.sleep(FOCUS_SETTLE_MS)
+            rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.takeIf { it.isEditable }
+                ?: return false
+        }
+        if (target !== info && target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
         val cm = getSystemService(android.content.ClipboardManager::class.java) ?: return false
         cm.setPrimaryClip(android.content.ClipData.newPlainText("hail", text))
-        val ok = info.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        val ok = target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         if (android.os.Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip()
         return ok
     }
@@ -216,6 +225,8 @@ class HailAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "HailA11y"
+        /** Time for a tapped field to take input focus before typing into it. */
+        private const val FOCUS_SETTLE_MS = 600L
         @Volatile var instance: HailAccessibilityService? = null
     }
 }

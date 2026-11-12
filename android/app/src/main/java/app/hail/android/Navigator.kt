@@ -12,7 +12,16 @@ package app.hail.android
  * cancel button, here and again in the executor.
  */
 
-data class NavConfig(val searchBar: List<String>, val dismiss: List<String>)
+data class NavConfig(
+    val searchBar: List<String>,
+    val dismiss: List<String>,
+    /**
+     * Labels of a destination field that the app does not mark as editable (Rapido's Compose
+     * search screen exposes it only as "Enter Drop location Input Field..."). Matched as
+     * case-insensitive substrings; Hail types into it, then into whatever field takes focus.
+     */
+    val dropField: List<String> = emptyList(),
+)
 
 data class NavGoal(
     val dropQuery: String,
@@ -25,6 +34,8 @@ class NavMemory {
     var pickupDone = false
     var typingPickup = false
     var pickupUnverified = false
+    /** Typed the destination into a labelled (non-editable) field; now waiting for suggestions. */
+    var typedLabelledField = false
     var lastAction: String? = null
     var repeats = 0
 }
@@ -96,6 +107,19 @@ object Navigator {
             }
             return NavAction.Tap(pick, "pick suggestion")
         }
+
+        // Search screen whose destination field isn't exposed as editable: find it by its label,
+        // type once, then tap the matching suggestion below it.
+        idx.firstOrNull { i -> nodes[i].label?.let { l -> cfg.nav.dropField.any { l.contains(it, true) } } == true }
+            ?.let { field ->
+                if (!mem.typedLabelledField) {
+                    mem.typedLabelledField = true
+                    return NavAction.Type(field, goal.dropQuery, "type destination (labelled field)")
+                }
+                val pick = bestMatch(nodes, goal.dropQuery, below = nodes[field].bottom, minScore = 0.67)
+                    ?: return NavAction.Wait("waiting for suggestions")
+                return NavAction.Tap(pick, "pick suggestion")
+            }
 
         // Home screen. A recent destination that matches exactly is the quickest route, but only
         // when pickup is the current location (recents keep the app's default pickup).

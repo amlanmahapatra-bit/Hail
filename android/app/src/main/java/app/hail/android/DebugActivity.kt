@@ -1,6 +1,7 @@
 package app.hail.android
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.widget.CheckBox
 import android.widget.EditText
@@ -55,13 +56,20 @@ class DebugActivity : Activity() {
 
         col.addView(text("Screen dumper", 18f))
         col.addView(text(
-            "1) Tap Start dump mode. 2) Open Rapido and go to the screen to capture " +
-                "(e.g. the fare list). 3) Pull down notifications and tap Dump screen. " +
+            "Tap Dump in 10 seconds, then open the ride app on the screen to capture " +
+                "(e.g. the fare list) and wait. Or: Start dump mode, open the app, pull down " +
+                "notifications and tap the Hail notification. " +
                 "The file goes to Downloads/Hail; share it from the Files app. Dumps " +
                 "contain whatever is on screen, so check them before sharing and delete " +
                 "them afterwards.", 14f
         ))
         col.addView(button("Start dump mode") { AgentService.startDumpMode(this) })
+        col.addView(button("Dump in 10 seconds (open the ride app now)") {
+            AgentService.startDumpMode(this)
+            android.os.Handler(mainLooper).postDelayed({
+                startService(Intent(this, AgentService::class.java).setAction(AgentService.ACTION_DUMP))
+            }, 10_000)
+        })
         col.addView(button("Stop dump mode") { AgentService.hide(this) })
 
         if (BuildConfig.DEBUG) {

@@ -94,9 +94,12 @@ data class Trip(
     val fare: String,
     val saved: Int?,
     val live: Boolean,
+    /** Why there is no saving (from the backend): "no_comparable" or "not_cheapest". */
+    val noSavingReason: String? = null,
 ) {
     fun json(): JSONObject = JSONObject().put("at", at).put("to", to).put("app", app)
         .put("product", product).put("fare", fare).put("saved", saved ?: JSONObject.NULL).put("live", live)
+        .put("no_saving_reason", noSavingReason ?: JSONObject.NULL)
 
     val whenText: String
         get() = DateTimeFormatter.ofPattern("d MMM · h:mm a", Locale.ENGLISH)
@@ -107,6 +110,7 @@ data class Trip(
             at = o.getLong("at"), to = o.optString("to"), app = o.optString("app"),
             product = o.optString("product"), fare = o.optString("fare"),
             saved = if (o.isNull("saved")) null else o.optInt("saved"), live = o.optBoolean("live", true),
+            noSavingReason = if (o.isNull("no_saving_reason")) null else o.optString("no_saving_reason").ifBlank { null },
         )
     }
 }
@@ -141,4 +145,11 @@ class TripLog(context: Context) {
     companion object {
         private const val MAX = 200
     }
+}
+
+/** Plain words for why a trip shows no saving. */
+fun noSavingText(reason: String?, app: String): String = when (reason) {
+    "no_comparable" -> "No like-for-like ride came back from another app this time, so there was nothing fair to compare $app with."
+    "not_cheapest" -> "Another app had a similar ride for less, so this one isn't counted as a saving."
+    else -> "No saving was counted for this ride."
 }

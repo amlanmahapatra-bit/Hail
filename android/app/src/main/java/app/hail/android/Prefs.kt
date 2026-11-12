@@ -14,12 +14,19 @@ import javax.crypto.spec.GCMParameterSpec
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("hail", Context.MODE_PRIVATE)
 
+    /** Location and notifications are asked once, at the first ride request, not in setup. */
+    var ridePermsAsked: Boolean
+        get() = sp.getBoolean("ride_perms_asked", false)
+        set(v) = sp.edit().putBoolean("ride_perms_asked", v).apply()
+
     var consentGiven: Boolean
         get() = sp.getBoolean("consent", false)
         set(v) = sp.edit().putBoolean("consent", v).apply()
 
     var backendUrl: String
-        get() = sp.getString("backend_url", BuildConfig.DEFAULT_BACKEND_URL)!!
+        get() = sp.getString("backend_url", null)
+            ?.takeUnless { it == "http://10.0.2.2:8000" } // old emulator default from early builds
+            ?: BuildConfig.DEFAULT_BACKEND_URL
         set(v) = sp.edit().putString("backend_url", v.trimEnd('/')).apply()
 
     /** Ride apps the user switched on in Connected apps. Default: all three. */

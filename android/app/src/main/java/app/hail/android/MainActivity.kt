@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 },
                 apps = {
                     ConnectAppsScreen(appRows(), ::toggleApp, ::openRideApp, ::installRideApp) {
-                        prefs.appsSetupDone = true; tick++; askPermissions()
+                        prefs.appsSetupDone = true; tick++
                     }
                 },
                 home = {
@@ -100,10 +100,10 @@ class MainActivity : ComponentActivity() {
                             setupWarning = setupWarning(),
                             testMode = prefs.simulateFares,
                         ),
-                        onAsk = { c.ask(it) },
+                        onAsk = { text -> withRidePermissions { c.ask(text) } },
                         onMic = { mic() },
                         onCategory = { c.chooseCategory(it) },
-                        onFavorite = { c.goTo(it) },
+                        onFavorite = { fav -> withRidePermissions { c.goTo(fav) } },
                         onRemoveFavorite = {
                             c.removeFavorite(it)
                             Toast.makeText(this, "Removed ${it.optString("label")}", Toast.LENGTH_SHORT).show()
@@ -192,14 +192,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun askPermissions() {
+    /** Run after the first-ride permission answers (or straight away when nothing is needed). */
+    private var afterRidePerms: (() -> Unit)? = null
+
+    /**
+     * Location ("pick me up here") and notifications (the "Hail is working · Stop" notice) are
+     * asked the first time someone requests a ride, with the request waiting for the answers.
+     * Never in setup, and never again after that: the ride works either way.
+     */
+    private fun withRidePermissions(then: () -> Unit) {
+        val wanted = ridePermissionsMissing()
+        if (prefs.ridePermsAsked || wanted.isEmpty()) return then()
+        prefs.ridePermsAsked = true
+        afterRidePerms = then
+        requestPermissions(wanted.toTypedArray(), REQ_PERMS)
+    }
+
+    private fun ridePermissionsMissing(): List<String> {
         val wanted = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) wanted += Manifest.permission.POST_NOTIFICATIONS
         // Location: only for "pickup = where I am", read when you send a request.
         if (!Here.granted(this)) wanted += listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-        if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), REQ_PERMS)
+        return wanted
     }
 
     // ------------------------------------------------------------------ apps and setup
@@ -258,6 +274,7 @@ class MainActivity : ComponentActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_MIC && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) c.startVoice()
+        if (requestCode == REQ_PERMS) afterRidePerms?.also { afterRidePerms = null }?.invoke()
     }
 
     /** Long-press the Hail icon → "Speak to Hail" opens straight into listening. */

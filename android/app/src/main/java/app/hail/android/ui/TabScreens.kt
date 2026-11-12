@@ -40,6 +40,8 @@ fun RidesScreen(trips: List<Trip>) {
                         when {
                             !t.live -> Text("test", color = HailColors.Amber, fontFamily = Manrope, fontSize = 12.sp)
                             (t.saved ?: 0) > 0 -> Text("saved ₹${t.saved}", color = HailColors.Mint, fontFamily = Manrope, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            t.noSavingReason == "no_comparable" -> Text("nothing to compare", color = HailColors.Muted, fontFamily = Manrope, fontSize = 12.sp)
+                            t.noSavingReason == "not_cheapest" -> Text("not the cheapest", color = HailColors.Muted, fontFamily = Manrope, fontSize = 12.sp)
                         }
                     }
                 }

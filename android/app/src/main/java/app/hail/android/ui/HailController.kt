@@ -26,7 +26,10 @@ sealed interface Phase {
     data class Reply(val text: String) : Phase
     data class Results(val rec: Recommendation, val to: String) : Phase
     data class Opening(val app: String) : Phase
-    data class Done(val app: String, val product: String, val text: String, val saved: Int?, val live: Boolean) : Phase
+    data class Done(
+        val app: String, val product: String, val text: String, val saved: Int?, val live: Boolean,
+        val noSavingReason: String? = null,
+    ) : Phase
     data class Failed(val text: String) : Phase
 }
 
@@ -253,13 +256,14 @@ class HailController(
         val rec = lastRec
         val saved = out.optJSONObject("savings")?.let { if (it.isNull("amount")) null else it.optInt("amount") }
         val live = rec?.live ?: true
+        val reason = out.optString("no_saving_reason").takeIf { it.isNotBlank() && it != "null" }
         if (o != null) {
-            trips.add(Trip(System.currentTimeMillis(), to, o.app, o.product, o.fare, saved, live))
+            trips.add(Trip(System.currentTimeMillis(), to, o.app, o.product, o.fare, saved, live, reason))
             tripsVersion++
             Analytics.event(activity, "ride_opened", "app" to o.app, "category" to (rec?.category ?: "any"),
                 "saved_bucket" to bucket(saved), "live" to live.toString())
         }
-        phase = Phase.Done(o?.appName ?: "the app", o?.product ?: "", out.optString("text"), saved, live)
+        phase = Phase.Done(o?.appName ?: "the app", o?.product ?: "", out.optString("text"), saved, live, reason)
         if (voiceMode) voice.speak(out.optString("text"))
     }
 

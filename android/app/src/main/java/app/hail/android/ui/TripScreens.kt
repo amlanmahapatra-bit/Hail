@@ -296,7 +296,10 @@ fun DoneScreen(p: Phase.Done, onDone: () -> Unit) {
                 Muted(if (p.live) "vs the priciest similar ride" else "test prices: not counted in your savings")
             }
         } else {
-            Card(Modifier.fillMaxWidth()) { Muted("This was already the best price on every app.") }
+            Card(Modifier.fillMaxWidth()) {
+                SectionLabel("No saving this ride")
+                Muted(noSavingText(p.noSavingReason, p.app), Modifier.padding(top = 4.dp))
+            }
         }
         Spacer(Modifier.weight(1f))
         PrimaryButton("Done", Modifier.padding(bottom = 24.dp), onClick = onDone)

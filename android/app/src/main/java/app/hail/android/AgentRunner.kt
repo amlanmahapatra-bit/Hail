@@ -1,5 +1,6 @@
 package app.hail.android
 
+import android.util.Log
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
@@ -9,6 +10,8 @@ import org.json.JSONObject
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
+
+private const val TAG = "HailAgent"
 
 /**
  * Drives one session against the backend: sends the user's message, executes every
@@ -63,6 +66,13 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
     }
 
     private fun run(first: JSONObject, l: Listener) {
+        if (!prefs.simulateFares && HailAccessibilityService.instance == null) {
+            main.post {
+                l.onFailure("Hail can't read your ride apps yet. Turn it on in Settings → Accessibility → " +
+                    "Installed apps → Hail, then try again.")
+            }
+            return
+        }
         AgentState.stopRequested = false
         AgentService.show(ctx, "Working on your request…")
         exec.execute {
@@ -77,7 +87,14 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
                             val app = action.getString("app")
                             main.post { l.onProgress("Checking ${app.replaceFirstChar { it.uppercase() }}…") }
                             AgentService.show(ctx, "Checking fares in $app…")
-                            val result = checkFares(out.getString("action_id"), action)
+                            // One app's screen failing to read must not end the whole request.
+                            val result = try {
+                                checkFares(out.getString("action_id"), action)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "fare check failed in $app: ${e.javaClass.simpleName}")
+                                JSONObject().put("type", "tool_result").put("action_id", out.getString("action_id"))
+                                    .put("status", "failed")
+                            }
                             if (!prefs.simulateFares) launchedApps = true
                             out = api.postMessage(sessionId, result)
                         }
@@ -96,8 +113,13 @@ class AgentRunner(private val ctx: Context, private val prefs: Prefs) {
                         }
                     }
                 }
+            } catch (e: ApiException) {
+                main.post { l.onFailure("Hail's server had a problem (${e.status}). Try again in a moment.") }
+            } catch (e: java.io.IOException) {
+                main.post { l.onFailure("Can't reach Hail. Check your internet and try again.") }
             } catch (e: Exception) {
-                main.post { l.onFailure("Can't reach Hail (${e.message ?: e.javaClass.simpleName}).") }
+                Log.w(TAG, "request failed: ${e.javaClass.simpleName}")
+                main.post { l.onFailure("Something went wrong on this phone (${e.javaClass.simpleName}). Try again.") }
             } finally {
                 AgentState.end()
                 AgentService.hide(ctx)

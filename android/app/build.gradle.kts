@@ -20,8 +20,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        // Emulator alias for the host machine. Change at runtime on the Debug screen.
-        buildConfigField("String", "DEFAULT_BACKEND_URL", "\"http://10.0.2.2:8000\"")
+        // The hosted backend (Vercel, Mumbai). Change at runtime on the Debug screen, e.g. to
+        // http://10.0.2.2:8000 for a backend on the emulator's host machine.
+        buildConfigField("String", "DEFAULT_BACKEND_URL", "\"https://hail-api-seven.vercel.app\"")
     }
 
     signingConfigs {

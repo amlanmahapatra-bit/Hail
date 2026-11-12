@@ -4,6 +4,7 @@ Built only from stored, whitelisted fields (rule 3). Never places, message text,
 or tokens.
 """
 
+import json
 from typing import Any
 
 from app.ranking import comparable_class, savings
@@ -36,8 +37,27 @@ def ride_summary(row: SessionRow) -> dict[str, Any]:
             }
             for o in sorted(opts, key=lambda o: (o.round, o.observation.fare_mid))
         ],
+        "checks": _check_statuses(st),
         "recommended": st.recommended_option_id,
         "chosen": st.chosen_option_id,
         "saved": sv.amount if sv else None,
         "compared_against": sv.compared_against.model_dump(mode="json") if sv else None,
     }
+
+
+def _check_statuses(st: SessionState) -> list[dict[str, str]]:
+    """Per-app result of each fare check ("ok", "failed", "app_not_installed", ...), oldest
+    first, from the tool results kept in the session. Statuses only, nothing else."""
+    out: list[dict[str, str]] = []
+    for m in st.messages:
+        if m.get("role") != "tool":
+            continue
+        try:
+            apps = json.loads(m.get("content") or "{}").get("apps")
+        except (ValueError, AttributeError):
+            continue
+        if isinstance(apps, dict):
+            out.append({str(k): str(v)[:32] for k, v in apps.items()})
+    if st.batch is not None and st.batch.results:
+        out.append(dict(st.batch.results))
+    return out

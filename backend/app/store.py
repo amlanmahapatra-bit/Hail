@@ -29,6 +29,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.protocol import Capabilities, FareObservation, Platform
 from app.state import SessionState
@@ -122,15 +123,29 @@ class Conflict(Exception):
     """Session was modified concurrently (e.g. a duplicate POST)."""
 
 
+def engine_url(database_url: str) -> str:
+    """Use the psycopg 3 driver for plain postgres:// URLs (as Supabase gives them)."""
+    for prefix in ("postgres://", "postgresql://"):
+        if database_url.startswith(prefix):
+            return "postgresql+psycopg://" + database_url[len(prefix):]
+    return database_url
+
+
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
 class Store:
     def __init__(self, database_url: str):
+        database_url = engine_url(database_url)
         kwargs: dict[str, Any] = {}
         if database_url.startswith("sqlite"):
             kwargs["connect_args"] = {"check_same_thread": False}
+        else:
+            # Postgres (Supabase) from serverless functions: no pool kept between requests, and
+            # no prepared statements, so it works through Supabase's transaction pooler.
+            kwargs["poolclass"] = NullPool
+            kwargs["connect_args"] = {"prepare_threshold": None}
         self.engine = create_engine(database_url, **kwargs)
         self._sm = sessionmaker(self.engine, expire_on_commit=False)
         Base.metadata.create_all(self.engine)

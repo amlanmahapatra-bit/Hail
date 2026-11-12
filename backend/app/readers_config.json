@@ -22,12 +22,13 @@
     "cab_premium": "Sedan / premium",
     "cab_xl": "SUV / 6-seater",
     "cab_luggage": "Cab with assured boot space",
-    "cab_luxury": "Luxury"
+    "cab_luxury": "Luxury",
+    "cab_economy": "Economy cab, AC not confirmed (Rapido \"Cab Economy\")"
   },
   "apps": {
     "rapido": {
       "package": "com.rapido.passenger",
-      "status": "draft_from_ios_recordings",
+      "status": "android_fare_list_names_from_mumbai_recording_2026-11-12; search screen unverified",
       "deep_link": null,
       "deep_link_note": "No public deep-link format. Hail navigates (search bar -> destination -> suggestion).",
       "screens": {
@@ -61,7 +62,8 @@
         }
       },
       "eta_patterns": [
-        "(\\d{1,2})\\s*min(?:s)?\\s*away"
+        "(\\d{1,2})\\s*min(?:s)?\\s*away",
+        "(\\d{1,2})\\s*mins?\\s*[·•]\\s*Drop"
       ],
       "products": {
         "Bike Direct": {
@@ -121,6 +123,35 @@
           "key": "rapido_cab_xl",
           "ride_type": "cab",
           "class": "cab_xl"
+        },
+        "Bike": {
+          "key": "rapido_bike",
+          "ride_type": "bike",
+          "class": "bike"
+        },
+        "Scooty": {
+          "key": "rapido_scooty",
+          "ride_type": "bike",
+          "class": "bike"
+        },
+        "Bike Pink": {
+          "key": "rapido_bike_pink",
+          "exclude": "specialty"
+        },
+        "Cab Economy": {
+          "key": "rapido_cab_economy",
+          "ride_type": "cab",
+          "class": "cab_economy"
+        },
+        "Cab Priority": {
+          "key": "rapido_cab_priority",
+          "ride_type": "cab",
+          "class": "cab_priority"
+        },
+        "Cab Sedan": {
+          "key": "rapido_cab_sedan",
+          "ride_type": "cab",
+          "class": "cab_premium"
         }
       },
       "dismissers": [],

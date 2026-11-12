@@ -167,6 +167,50 @@ class FareReaderTest {
         assertEquals(ScreenState.RIDE_IN_PROGRESS, FareReader.state(searching, rapido))
     }
 
+    // ---------- Rapido, ANDROID, Mumbai: fare list from the founder's screen recording,
+    // 2026-11-12 17:26 IST (frames 392x850; bounds approximate, text exact). ----------
+    private val rapidoAndroidMumbai = listOf(
+        n("116, Temple L...", 98, 40, 220, 58), n("Add stop", 270, 70, 330, 88),
+        n("Bike", 84, 250, 200, 270), n("₹203", 320, 250, 370, 270),
+        n("Quick Bike rides", 84, 272, 220, 288),
+        n("4 mins away · Drop 5:54 pm", 84, 290, 260, 306),
+        n("Bike Pink", 84, 320, 200, 340), n("₹132", 320, 320, 370, 340),
+        n("₹152", 338, 344, 370, 360),
+        n("7 mins · Drop 5:57 pm", 84, 342, 260, 358),
+        n("Scooty", 84, 372, 200, 392), n("₹228", 320, 372, 370, 392),
+        n("4 mins · Drop 5:54 pm", 84, 394, 260, 410),
+        n("Auto", 84, 424, 200, 444), n("₹200", 320, 424, 370, 444),
+        n("4 mins · Drop 5:59 pm", 84, 446, 260, 462),
+        n("Auto Priority", 84, 476, 200, 496), n("₹253", 320, 476, 370, 496),
+        n("4 mins · Drop 5:59 pm", 84, 498, 260, 514),
+        n("Cab Economy", 84, 528, 200, 548), n("₹291", 320, 528, 370, 548),
+        n("4 mins · Drop 5:59 pm", 84, 550, 260, 566),
+        n("Cab Priority", 84, 580, 200, 600), n("₹351", 320, 580, 370, 600),
+        n("4 mins · Drop 5:59 pm", 84, 602, 260, 618),
+        n("Cab Sedan", 84, 632, 200, 652), n("₹322", 320, 632, 370, 652),
+        n("4 mins · Drop 5:59 pm", 84, 654, 260, 670),
+        n("Cab Premium", 84, 684, 200, 704), n("₹381", 320, 684, 370, 704),
+        n("4 mins · Drop 5:59 pm", 84, 706, 260, 722),
+        n("Cab XL", 84, 736, 200, 756), n("₹446", 320, 736, 370, 756),
+        n("4 mins · Drop 5:59 pm", 84, 758, 260, 774),
+        n("Cash", 42, 788, 80, 806), n("Promos", 60, 818, 110, 832),
+        n("Bargain & Book", 30, 838, 150, 858), n("Book Now", 200, 838, 320, 858),
+    )
+
+    @Test fun rapido_android_mumbai_fare_list() {
+        assertEquals(ScreenState.FARE_LIST, FareReader.state(rapidoAndroidMumbai, rapido))
+        assertEquals(
+            mapOf(
+                "rapido_bike" to (203.0 to 4), "rapido_scooty" to (228.0 to 4),
+                "rapido_auto" to (200.0 to 4), "rapido_auto_priority" to (253.0 to 4),
+                "rapido_cab_economy" to (291.0 to 4), "rapido_cab_priority" to (351.0 to 4),
+                "rapido_cab_sedan" to (322.0 to 4), "rapido_cab_premium" to (381.0 to 4),
+                "rapido_cab_xl" to (446.0 to 4),
+            ),
+            fares(FareReader.parse(rapidoAndroidMumbai, rapido)),
+        )
+    }
+
     @Test fun price_pattern_edge_cases() {
         assertEquals(49.40 to 49.40, FareReader.firstPrice("₹49.40", uber))
         assertEquals(118.0 to 131.0, FareReader.firstPrice("₹118 - ₹131", ola))

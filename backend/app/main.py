@@ -60,6 +60,8 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     store = Store(settings.database_url)
+    if settings.seed_invite_codes:
+        store.ensure_invites(settings.seed_invite_codes.split(","), clock())
     agent = Agent(llm or build_llm(settings), settings)
     app = FastAPI(title="Hail", version="0.1.0")
     app.state.store = store

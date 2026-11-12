@@ -28,6 +28,7 @@ from sqlalchemy import (
     select,
     update,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -251,6 +252,20 @@ class Store:
         with self.db() as db, db.begin():
             db.add(InviteRow(code=code, note=note[:120], max_uses=max_uses, uses=0, created_at=now))
         return code
+
+    def ensure_invites(self, codes: list[str], now: datetime, note: str = "seeded") -> None:
+        """Adds each one-use code that doesn't exist yet. Used to seed a hosted database where
+        the admin CLI can't reach it (SEED_INVITE_CODES). Safe to run on every start."""
+        for raw in codes:
+            code = raw.strip().upper()
+            if not code:
+                continue
+            try:
+                with self.db() as db, db.begin():
+                    if db.get(InviteRow, code) is None:
+                        db.add(InviteRow(code=code, note=note, max_uses=1, uses=0, created_at=now))
+            except IntegrityError:
+                pass  # another instance seeded it at the same moment
 
     def redeem_invite(self, code: str) -> bool:
         """Uses one redemption of `code` (case-insensitive). False if unknown or used up."""

@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # turn on in production (REQUIRE_INVITE=true).
     require_invite: bool = False
     invite_requests_per_day: int = 200
+    # Comma-separated one-use invite codes to create at startup if missing (hosted database).
+    seed_invite_codes: str = ""
 
 
 @lru_cache

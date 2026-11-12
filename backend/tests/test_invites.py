@@ -59,3 +59,13 @@ def test_invite_request_validation_and_daily_cap(make_client):
     )
     assert client.post("/v1/invite-requests", json={"contact": "a@b.co"}).status_code == 201
     assert client.post("/v1/invite-requests", json={"contact": "c@d.co"}).status_code == 429
+
+
+def test_seeded_codes_work_once_and_reseeding_is_harmless(make_client, clock, settings):
+    store = Store(settings.database_url)
+    store.ensure_invites([" hail-seed22 ", "HAIL-SEED33", ""], clock())
+    client = make_client(require_invite=True)
+    assert _register(client, "HAIL-SEED22").status_code == 201
+    store.ensure_invites(["HAIL-SEED22"], clock())  # a restart must not reset a used code
+    assert _register(client, "HAIL-SEED22").json()["detail"] == "invalid_invite"
+    assert _register(client, "hail-seed33").status_code == 201

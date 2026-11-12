@@ -30,13 +30,23 @@ object RideApps {
     @Volatile var readers: Map<String, AppReaderConfig> = emptyMap()
 
     /** Reader config from the backend (fixable remotely), else the copy bundled in the APK. */
+    /** When the server copy was last fetched. The process outlives the app's screens (the
+     *  accessibility service keeps it running), so the config is refreshed, not loaded once. */
+    @Volatile private var fetchedAt = 0L
+    private const val REFRESH_MS = 5 * 60_000L
+
     fun ensureConfig(ctx: Context, fetch: () -> JSONObject?) {
-        if (config != null && readers.isNotEmpty()) return
-        val c = runCatching { fetch() }.getOrNull()
+        val fresh = System.currentTimeMillis() - fetchedAt < REFRESH_MS
+        if (config != null && readers.isNotEmpty() && fresh) return
+        val fetched = runCatching { fetch() }.getOrNull()
+        if (fetched != null) fetchedAt = System.currentTimeMillis()
+        if (fetched == null && config != null && readers.isNotEmpty()) return // keep what we have
+        val c = fetched
             ?: runCatching { JSONObject(ctx.assets.open("readers_config.json").bufferedReader().readText()) }.getOrNull()
             ?: return
+        val parsed = runCatching { ReaderConfigs.parse(c) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return
         config = c
-        readers = runCatching { ReaderConfigs.parse(c) }.getOrDefault(emptyMap())
+        readers = parsed
     }
 
     fun productName(app: String, key: String): String {

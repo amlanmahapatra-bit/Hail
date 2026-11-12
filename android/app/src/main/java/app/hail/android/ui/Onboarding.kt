@@ -1,5 +1,6 @@
 package app.hail.android.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -24,18 +25,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.hail.android.R
 
 @Composable
 fun WelcomeScreen(onStart: () -> Unit) {
     Column(Modifier.fillMaxSize().background(HailColors.gradient).padding(28.dp)) {
         Spacer(Modifier.weight(1f))
-        Text("HAIL", fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 88.sp, letterSpacing = (-3).sp, color = HailColors.Text)
+        Image(painterResource(R.drawable.hail_wordmark), contentDescription = "Hail", Modifier.height(72.dp))
+        Spacer(Modifier.height(20.dp))
         Text("One request.\nEvery cab app.\nThe best ride, ready to book.", fontFamily = Manrope, fontWeight = FontWeight.Bold,
             fontSize = 26.sp, lineHeight = 32.sp, color = HailColors.Text)
         Spacer(Modifier.height(18.dp))

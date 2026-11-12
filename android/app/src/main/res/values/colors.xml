@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background of the Hail logo (docs/brand/hail-logo.png). -->
+    <color name="hail_logo_bg">#5B3DF5</color>
+</resources>

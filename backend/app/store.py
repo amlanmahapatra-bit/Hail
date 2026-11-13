@@ -156,7 +156,7 @@ def engine_url(database_url: str) -> str:
     only the sslmode option: libpq rejects extras such as Supabase's `supa=` marker."""
     for prefix in ("postgres://", "postgresql://"):
         if database_url.startswith(prefix):
-            base, _, query = database_url[len(prefix):].partition("?")
+            base, _, query = database_url[len(prefix) :].partition("?")
             keep = [kv for kv in query.split("&") if kv.startswith("sslmode=")]
             return "postgresql+psycopg://" + base + ("?" + "&".join(keep) if keep else "")
     return database_url
@@ -387,17 +387,28 @@ class Store:
             for o in obs:
                 db.add(
                     AreaFareRow(
-                        device_id=device_id, pickup_area=pickup_area, drop_area=drop_area,
-                        app=o.app.value, ride_type=o.ride_type.value, product=o.product,
-                        fare_min=o.fare_min, fare_max=o.fare_max, eta_minutes=o.eta_minutes,
-                        surge_flag=o.surge_flag, captured_at=o.captured_at,
+                        device_id=device_id,
+                        pickup_area=pickup_area,
+                        drop_area=drop_area,
+                        app=o.app.value,
+                        ride_type=o.ride_type.value,
+                        product=o.product,
+                        fare_min=o.fare_min,
+                        fare_max=o.fare_max,
+                        eta_minutes=o.eta_minutes,
+                        surge_flag=o.surge_flag,
+                        captured_at=o.captured_at,
                     )
                 )
 
     def delete_device_data(self, device_id: str) -> None:
         with self.db() as db, db.begin():
             for model in (
-                FareObservationRow, FareCheckEventRow, SessionRow, FavoriteRow, AreaFareRow,
+                FareObservationRow,
+                FareCheckEventRow,
+                SessionRow,
+                FavoriteRow,
+                AreaFareRow,
                 AreaConsentRow,
             ):
                 db.execute(delete(model).where(model.device_id == device_id))

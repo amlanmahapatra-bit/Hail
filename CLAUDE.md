@@ -69,7 +69,8 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
    always labelled not live. Favourite places are per device and deleted with `DELETE /v1/me`.
 
 ## Working agreement
-- Small, testable steps. Run `uv run ruff check . && uv run pytest -q` (in `backend/`) and
+- Small, testable steps. Run `uv run ruff check . && uv run ruff format --check . && uv run pytest -q`
+  (in `backend/`, the same checks CI runs) and
   `uv run python ../tools/fake_phone.py` before claiming anything works.
 - Explain tradeoffs briefly in plain English. Give exact commands and expected output.
 - Unknowns (screen layouts, deep links, API details): ask, or explain how to collect them.

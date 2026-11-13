@@ -22,9 +22,11 @@ from fastapi.responses import JSONResponse
 
 from app.admin import ride_summary
 from app.agent import Agent, Hooks
+from app.areas import area_cell
 from app.config import Settings, get_settings
 from app.llm import FakeLLM, LLMClient, OpenRouterClient
 from app.protocol import (
+    AreaDataConsent,
     Capabilities,
     DeviceCredentials,
     DeviceRegistration,
@@ -117,6 +119,27 @@ def create_app(
     def readers_config() -> dict[str, Any]:
         return json.loads(READERS_CONFIG.read_text())
 
+    def _record_area_fares(device_id: str, obs, pickup, drop) -> None:
+        """Opt-in only; neighbourhood cells only; skipped when a place has no coordinates."""
+        if pickup is None or drop is None or pickup.lat is None or drop.lat is None:
+            return
+        if not store.area_opt_in(device_id):
+            return
+        store.record_area_fares(
+            device_id, area_cell(pickup.lat, pickup.lng), area_cell(drop.lat, drop.lng), obs
+        )
+
+    @app.get("/v1/me/area-data")
+    def get_area_data(dev: Annotated[DeviceRow, Depends(device)]) -> AreaDataConsent:
+        return AreaDataConsent(opt_in=store.area_opt_in(dev.id))
+
+    @app.put("/v1/me/area-data")
+    def put_area_data(
+        body: AreaDataConsent, dev: Annotated[DeviceRow, Depends(device)]
+    ) -> AreaDataConsent:
+        store.set_area_opt_in(dev.id, body.opt_in, clock())
+        return AreaDataConsent(opt_in=body.opt_in)
+
     @app.delete("/v1/me", status_code=204)
     def delete_me(dev: Annotated[DeviceRow, Depends(device)]) -> Response:
         store.delete_device_data(dev.id)
@@ -164,6 +187,7 @@ def create_app(
                 dev.id, now, settings.fare_checks_per_hour
             ),
             record_observations=lambda obs: store.record_observations(session_id, dev.id, obs),
+            record_area_fares=lambda obs, a, b: _record_area_fares(dev.id, obs, a, b),
         )
         caps = Capabilities.model_validate(dev.capabilities)
         out = agent.handle(session_id, state, caps, msg, now, hooks)

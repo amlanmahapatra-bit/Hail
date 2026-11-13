@@ -87,6 +87,12 @@ class Api(private val prefs: Prefs) {
 
     fun readersConfig(): JSONObject = request("GET", "/v1/config/readers", null, auth = false)
 
+    /** Opt-in area-level price data (fares by neighbourhood and hour, never exact places). */
+    fun setAreaData(optIn: Boolean) {
+        ensureRegistered()
+        request("PUT", "/v1/me/area-data", JSONObject().put("opt_in", optIn))
+    }
+
     fun deleteMyData() {
         if (prefs.deviceToken == null) return
         request("DELETE", "/v1/me", null)

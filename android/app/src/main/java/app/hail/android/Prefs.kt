@@ -19,6 +19,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("ride_perms_asked", false)
         set(v) = sp.edit().putBoolean("ride_perms_asked", v).apply()
 
+    /** Mirrors the server: area-level price data shared (opt-in, off by default). */
+    var areaDataOptIn: Boolean
+        get() = sp.getBoolean("area_data_opt_in", false)
+        set(v) = sp.edit().putBoolean("area_data_opt_in", v).apply()
+
     var consentGiven: Boolean
         get() = sp.getBoolean("consent", false)
         set(v) = sp.edit().putBoolean("consent", v).apply()

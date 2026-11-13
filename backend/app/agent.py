@@ -65,6 +65,11 @@ class Hooks:
 
     allow_fare_check: Callable[[], bool]
     record_observations: Callable[[list[FareObservation]], None]
+    # Opt-in price data: the trip's pickup and drop, which the caller reduces to area cells
+    # (and stores only if the rider opted in). Places without coordinates are passed as None.
+    record_area_fares: Callable[[list[FareObservation], Place | None, Place | None], None] = (
+        lambda obs, pickup, drop: None
+    )
 
 
 class Agent:
@@ -149,6 +154,11 @@ class Agent:
                     s.options[oid] = Option(option_id=oid, round=s.round, observation=ob)
         if kept:
             ctx.hooks.record_observations(kept)
+            pickup = s.places.get(batch.pickup_id)
+            drop = s.places.get(batch.drop_id)
+            ctx.hooks.record_area_fares(
+                kept, pickup.place if pickup else None, drop.place if drop else None
+            )
 
         if msg.status == "stopped_by_user":
             for app in batch.queue:

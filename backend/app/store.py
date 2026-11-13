@@ -60,6 +60,33 @@ class SessionRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class AreaConsentRow(Base):
+    """A rider's opt-in to share area-level price data. Absent = not opted in."""
+
+    __tablename__ = "area_consents"
+    device_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    opted_in: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AreaFareRow(Base):
+    """Opt-in price data for prediction: fares by area cell and time, never exact places."""
+
+    __tablename__ = "area_fares"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(String(64), index=True)  # only for Delete my data
+    pickup_area: Mapped[str] = mapped_column(String(8), index=True)
+    drop_area: Mapped[str] = mapped_column(String(8), index=True)
+    app: Mapped[str] = mapped_column(String(16))
+    ride_type: Mapped[str] = mapped_column(String(16))
+    product: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    fare_min: Mapped[float] = mapped_column(Float)
+    fare_max: Mapped[float] = mapped_column(Float)
+    eta_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    surge_flag: Mapped[bool] = mapped_column(Boolean, default=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class FareObservationRow(Base):
     __tablename__ = "fare_observations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -337,9 +364,42 @@ class Store:
         return code
 
     # privacy
+    def area_opt_in(self, device_id: str) -> bool:
+        with self.db() as db:
+            row = db.get(AreaConsentRow, device_id)
+            return bool(row and row.opted_in)
+
+    def set_area_opt_in(self, device_id: str, opted_in: bool, now: datetime) -> None:
+        """Opting out also deletes the area data already shared."""
+        with self.db() as db, db.begin():
+            row = db.get(AreaConsentRow, device_id)
+            if row is None:
+                db.add(AreaConsentRow(device_id=device_id, opted_in=opted_in, updated_at=now))
+            else:
+                row.opted_in, row.updated_at = opted_in, now
+            if not opted_in:
+                db.execute(delete(AreaFareRow).where(AreaFareRow.device_id == device_id))
+
+    def record_area_fares(
+        self, device_id: str, pickup_area: str, drop_area: str, obs: list[FareObservation]
+    ) -> None:
+        with self.db() as db, db.begin():
+            for o in obs:
+                db.add(
+                    AreaFareRow(
+                        device_id=device_id, pickup_area=pickup_area, drop_area=drop_area,
+                        app=o.app.value, ride_type=o.ride_type.value, product=o.product,
+                        fare_min=o.fare_min, fare_max=o.fare_max, eta_minutes=o.eta_minutes,
+                        surge_flag=o.surge_flag, captured_at=o.captured_at,
+                    )
+                )
+
     def delete_device_data(self, device_id: str) -> None:
         with self.db() as db, db.begin():
-            for model in (FareObservationRow, FareCheckEventRow, SessionRow, FavoriteRow):
+            for model in (
+                FareObservationRow, FareCheckEventRow, SessionRow, FavoriteRow, AreaFareRow,
+                AreaConsentRow,
+            ):
                 db.execute(delete(model).where(model.device_id == device_id))
             db.execute(delete(DeviceRow).where(DeviceRow.id == device_id))
 

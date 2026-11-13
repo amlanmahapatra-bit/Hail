@@ -219,6 +219,10 @@ any user_message (when not busy) --> cancels pending confirmation --> idle --> (
 ## Other endpoints
 - `GET /v1/config/readers`: reader selectors, deep-link templates and screen signatures per
   app. The phone caches it and refreshes on launch.
-- `DELETE /v1/me`: deletes the device, its sessions, observations and rate-limit events.
+- `DELETE /v1/me`: deletes the device, its sessions, observations and rate-limit events, and any
+  opt-in area data.
+- `GET /v1/me/area-data` → `{"opt_in": bool}`; `PUT /v1/me/area-data` with `{"opt_in": bool}`.
+  Opt-in area-level price data: fares stored with pickup and drop as 6-character geohash cells
+  (about 1.2 x 0.6 km), never exact places. Off by default; `opt_in: false` deletes what was shared.
   Returns 204, after which the token is invalid. The app then wipes local data.
 - `GET /healthz`

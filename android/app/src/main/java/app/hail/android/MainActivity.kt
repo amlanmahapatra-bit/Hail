@@ -121,6 +121,8 @@ class MainActivity : ComponentActivity() {
                         onAccessibility = { openAccessibilitySettings() },
                         onDeleteData = { deleteMyData() },
                         onDebug = { startActivity(Intent(this, DebugActivity::class.java)) },
+                        areaDataOn = prefs.areaDataOptIn,
+                        onAreaData = { setAreaData(it) },
                     )
                 },
                 trip = {
@@ -248,6 +250,24 @@ class MainActivity : ComponentActivity() {
 
     private fun fixSetup() {
         if (RideApps.connected(this, prefs).isEmpty()) tab = Tab.PROFILE else openAccessibilitySettings()
+    }
+
+    private fun setAreaData(optIn: Boolean) {
+        val before = prefs.areaDataOptIn
+        prefs.areaDataOptIn = optIn
+        tick++
+        io.execute {
+            val ok = runCatching { Api(prefs).setAreaData(optIn) }.isSuccess
+            runOnUiThread {
+                if (!ok) {
+                    prefs.areaDataOptIn = before
+                    tick++
+                    Toast.makeText(this, "Couldn't reach Hail. Try again.", Toast.LENGTH_LONG).show()
+                } else {
+                    Analytics.event(this, "area_data", "input" to if (optIn) "on" else "off")
+                }
+            }
+        }
     }
 
     private fun deleteMyData() {

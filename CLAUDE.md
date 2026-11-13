@@ -50,6 +50,10 @@ The backend decides; the phone acts. `POST /v1/sessions/{id}/messages`: one type
    (`extra="forbid"`). Never put screen text into prompts, logs or the DB. No screenshots.
 3. **Store only** app, ride_type, product (catalog key), fare_min, fare_max, currency,
    eta_minutes, surge_flag, captured_at, confidence, screen_signature. No driver data, no driver location.
+   **Opt-in price data (the moat):** only for riders who switch it on (`PUT /v1/me/area-data`,
+   off by default), the same fare fields plus the pickup and drop as 6-character geohash cells
+   (about 1.2 x 0.6 km), in `area_fares`. Never exact coordinates or place names there. Opting
+   out deletes it; so does `DELETE /v1/me`.
 4. **Never handle ride-app credentials.** The customer logs in once inside each official app,
    and Hail uses those logged-in apps. "Connected apps" means installed plus switched on; it
    never means a stored login, token or OTP.

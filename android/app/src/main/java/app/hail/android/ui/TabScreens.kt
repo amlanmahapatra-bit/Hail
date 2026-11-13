@@ -103,6 +103,8 @@ fun ProfileScreen(
     onAccessibility: () -> Unit,
     onDeleteData: () -> Unit,
     onDebug: () -> Unit,
+    areaDataOn: Boolean = false,
+    onAreaData: (Boolean) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 12.dp)) {
         Text("Your apps", style = MaterialTheme.typography.headlineLarge)
@@ -118,6 +120,18 @@ fun ProfileScreen(
                     Muted(if (accessibilityOn) "On. Hail can check your apps." else "Off. Tap to turn on Hail in Accessibility.", size = 13)
                 }
                 if (accessibilityOn) Pill("ON", HailColors.Mint, HailColors.MintBg) else Pill("TURN ON", HailColors.Amber, HailColors.AmberBg)
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Card {
+            Row2 {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("Help Hail predict prices", style = MaterialTheme.typography.titleMedium)
+                    Muted("Share the fares Hail finds with your trip's neighbourhoods (about 1 km), never exact places. " +
+                        "Hail learns which app is cheapest where and when. Off by default; turning it off deletes what you shared.", size = 13)
+                }
+                Toggle(areaDataOn, onAreaData)
             }
         }
 

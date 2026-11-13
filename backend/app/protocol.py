@@ -299,3 +299,10 @@ class Favorites(Strict):
 class DeviceCredentials(Strict):
     device_id: str
     token: str
+
+
+class AreaDataConsent(Strict):
+    """The rider's choice to share area-level price data (fares by neighbourhood and hour,
+    never exact places) to improve predictions. Off unless the rider turns it on."""
+
+    opt_in: bool

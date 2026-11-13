@@ -2,6 +2,26 @@
 
 Newest first. Each entry: decision, why, and what would make us revisit it.
 
+## 2026-11-13: Opt-in, area-level price data (the data moat)
+
+**Decision (founder):** collect cross-app fare data by area and time, to predict the cheapest
+app and surge on a route before checking, and as Hail's long-term moat (no one else sees the
+same trip priced on every app at the same minute).
+
+**Limits that make it an asset, not a liability:** opt-in only, off by default (a switch in
+Profile, explained on the privacy screen); pickup and drop stored only as 6-character geohash
+cells (about 1.2 x 0.6 km), never coordinates or place names; still no screen text; opting out
+deletes what was shared, and so does Delete my data. Consented, purpose-limited data with
+deletion fits India's DPDP Act 2023; broad tracking would not.
+
+**Built:** `area_consents` and `area_fares` tables, `GET/PUT /v1/me/area-data`, the Profile
+switch. Tests: nothing stored without opt-in; only cells stored; opt-out and Delete my data
+remove it.
+
+**Revisit:** if opt-in rates are too low to be useful (then ask in context, after a saving), or
+before any use beyond predictions for riders (e.g. selling aggregates), which needs its own
+consent.
+
 ## 2026-11-10: Hail becomes a proper app (Compose UI, invite-only beta, Firebase Analytics)
 - **Founder decision, after the 6 Nov mentor call:** Hail is an app first, with the agent
   underneath. Invite-only sign-up ("request beta"), no city limit, branding, analytics. UI polish
